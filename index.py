@@ -293,7 +293,11 @@ def run_bot():
 
 
 if __name__ == "__main__":
-    init_db()
+    try:
+        init_db()
+    except Exception as e:
+        print(f"ERROR init_db: {e}")
+        raise
     if bot and ADMIN_ID:
         t = threading.Thread(target=run_bot, daemon=True)
         t.start()
