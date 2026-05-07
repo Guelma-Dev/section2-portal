@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>عداد الصلاة الذكي</title>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/dist/tasks-vision.min.js" crossorigin="anonymous"></script>
+<style>
+:root{--acc:#60a5fa;--bg:#050810}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{background:var(--bg);color:#e5e7eb;font-family:'Amiri',serif;min-height:100vh;min-height:100dvh;overflow:hidden;-webkit-tap-highlight-color:transparent}
+
+.screen{display:none;position:fixed;inset:0;flex-direction:column;align-items:center;z-index:1;overflow-y:auto;background:var(--bg)}
+.screen.active{display:flex}
+
+.stars{position:fixed;inset:0;z-index:0;pointer-events:none}
+.star{position:absolute;width:2px;height:2px;background:#fff;border-radius:50%;animation:tw var(--d) var(--dl) infinite alternate}
+@keyframes tw{0%{opacity:.12;transform:scale(1)}100%{opacity:var(--o);transform:scale(1.4)}}
+
+#flash{position:fixed;inset:0;z-index:200;pointer-events:none;background:radial-gradient(circle,rgba(255,255,255,.12) 0%,transparent 70%);opacity:0;transition:opacity .06s}
+#flash.go{opacity:1}
+
+/* === SCREEN 1 === */
+#s1{justify-content:center;padding:20px 16px;gap:16px}
+.sh{text-align:center;z-index:1}
+.sh h1{font-size:22px;color:#fff}
+.sh p{font-size:13px;color:rgba(255,255,255,.4);margin-top:2px}
+.sg{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;max-width:340px;width:100%;z-index:1}
+.sc{display:flex;flex-direction:column;align-items:center;gap:4px;padding:14px 8px;border-radius:14px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.025);cursor:pointer;transition:all .25s;text-align:center}
+.sc:active,.sc:hover{border-color:var(--c);background:rgba(255,255,255,.06);transform:translateY(-2px)}
+.sc .ic{font-size:24px}
+.sc .nm{font-size:14px;font-weight:700;color:#fff}
+.sc .dt{font-size:10px;color:rgba(255,255,255,.35);font-family:'IBM Plex Mono',monospace}
+.sx{max-width:340px;width:100%;z-index:1;display:flex;gap:8px}
+.sx input{flex:1;padding:11px 12px;border-radius:11px;border:1px solid rgba(255,255,255,.08);background:rgba(255,255,255,.04);color:#fff;font-size:15px;font-family:'IBM Plex Mono',monospace;text-align:center;outline:none}
+.sx button{padding:11px 18px;border-radius:11px;border:none;background:var(--acc);color:#050810;font-weight:700;font-size:14px;font-family:'Amiri',serif;cursor:pointer}
+
+/* === SCREEN 2 === */
+#s2{padding:0;gap:0;justify-content:space-between}
+
+.ct{width:100%;display:flex;align-items:center;justify-content:space-between;padding:10px 14px;flex-shrink:0}
+.ct .bk{background:none;border:none;color:rgba(255,255,255,.45);font-size:18px;cursor:pointer;padding:4px 10px;border-radius:8px}
+.ct .pn{font-size:16px;font-weight:700;color:var(--acc)}
+.ct .bd{font-size:12px;color:rgba(255,255,255,.3);font-family:'IBM Plex Mono',monospace}
+
+.cm{flex:1;display:flex;align-items:center;justify-content:center;width:100%;padding:0 8px;min-height:0;position:relative}
+
+.rk{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 20px;flex-shrink:0}
+.rk .lb{font-size:12px;color:rgba(255,255,255,.3)}
+.rk .vl{font-size:clamp(48px,16vw,130px);font-weight:700;color:var(--acc);font-family:'IBM Plex Mono',monospace;line-height:1}
+.rk .of{font-size:11px;color:rgba(255,255,255,.2);margin-top:4px}
+
+.sj{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;min-width:0}
+.sj .lb{font-size:13px;color:rgba(255,255,255,.3)}
+.sj .vl{font-size:clamp(76px,28vw,200px);font-weight:700;color:#fff;font-family:'IBM Plex Mono',monospace;line-height:1;transition:all .3s}
+.sj .vl.a{color:var(--acc);text-shadow:0 0 40px color-mix(in srgb,var(--acc) 40%,transparent)}
+.sj .of{font-size:12px;color:rgba(255,255,255,.2)}
+
+.dt2{display:flex;gap:10px;margin-top:10px}
+.dt2 .d{width:12px;height:12px;border-radius:50%;border:2px solid rgba(255,255,255,.1);transition:all .3s}
+.dt2 .d.f{background:var(--acc);border-color:var(--acc);box-shadow:0 0 8px var(--acc)}
+
+.sp2{position:absolute;top:8px;right:12px;background:none;border:none;font-size:16px;cursor:pointer;padding:4px 8px;border-radius:6px;color:rgba(255,255,255,.35)}
+.sp2.on{color:var(--acc)}
+
+.cs{text-align:center;padding:4px;font-size:11px;color:rgba(255,255,255,.3)}
+.cs i{display:inline-block;width:6px;height:6px;border-radius:50%;margin-left:3px;vertical-align:middle;font-style:normal}
+.cs i.g{background:#4ade80}
+.cs i.r{background:#f87171;animation:bk .5s infinite}
+.cs i.y{background:#fbbf24}
+@keyframes bk{0%,100%{opacity:1}50%{opacity:.3}}
+
+.cb{width:100%;padding:8px 14px 14px;display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.sn2{display:flex;align-items:center;gap:6px;justify-content:center}
+.sn2 label{font-size:11px;color:rgba(255,255,255,.3)}
+.sn2 input{flex:1;max-width:200px;accent-color:var(--acc);height:3px}
+.sn2 b{font-size:11px;color:var(--acc);font-family:'IBM Plex Mono',monospace;min-width:20px;text-align:center}
+.acts{display:flex;gap:8px;justify-content:center}
+.acts button{padding:9px 22px;border-radius:9px;border:1px solid rgba(255,255,255,.06);background:rgba(255,255,255,.03);color:rgba(255,255,255,.55);font-size:13px;font-family:'Amiri',serif;cursor:pointer}
+.acts button.p{background:var(--acc);color:#050810;border-color:var(--acc);font-weight:700}
+
+.ld{position:absolute;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:var(--bg);z-index:10}
+.ld.show{display:flex}
+.ld .sp{width:32px;height:32px;border:3px solid rgba(255,255,255,.08);border-top-color:var(--acc);border-radius:50%;animation:sn2 .8s linear infinite}
+@keyframes sn2{to{transform:rotate(360deg)}}
+.ld p{font-size:13px;color:rgba(255,255,255,.5);text-align:center;max-width:80%}
+
+/* === SCREEN 3 === */
+#s3{justify-content:center;padding:20px;gap:16px}
+.dk{font-size:56px;animation:pi .5s both}
+.dh{font-size:22px;font-weight:700;color:#fff;animation:pi .5s .1s both}
+.dn{font-size:15px;color:var(--acc);animation:pi .5s .2s both}
+.ds2{display:flex;gap:20px;padding:14px 24px;background:rgba(255,255,255,.03);border-radius:14px;border:1px solid rgba(255,255,255,.06);animation:pi .5s .3s both}
+.ds2 div{text-align:center}
+.ds2 b{font-size:26px;color:#fff;font-family:'IBM Plex Mono',monospace;display:block}
+.ds2 small{font-size:10px;color:rgba(255,255,255,.35)}
+.dg{padding:12px 28px;border-radius:11px;border:none;background:var(--acc);color:#050810;font-size:15px;font-weight:700;font-family:'Amiri',serif;cursor:pointer;animation:pi .5s .4s both}
+@keyframes pi{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<div id="flash"></div>
+<div class="stars" id="S"></div>
+
+<!-- 1: SELECT -->
+<div class="screen active" id="s1">
+  <div class="sh"><h1>عداد الصلاة الذكي</h1><p>اختر الصلاة لبدء العد</p></div>
+  <div class="sg" id="G"></div>
+  <div class="sx">
+    <input type="number" id="ci" min="1" max="99" placeholder="عدد الركعات">
+    <button onclick="goCust()">بدء</button>
+  </div>
+</div>
+
+<!-- 2: COUNTER -->
+<div class="screen" id="s2">
+  <div class="ld" id="LD"><div class="sp"></div><p id="LDm">جاري التحميل...</p></div>
+  <div class="ct">
+    <button class="bk" onclick="goH()">&#8592; رجوع</button>
+    <span class="pn" id="PN"></span>
+    <span class="bd" id="BD"></span>
+  </div>
+  <div class="cm">
+    <button class="sp2 on" id="SP" onclick="togSp()">&#128266;</button>
+    <div class="rk">
+      <div class="lb">الركعة</div>
+      <div class="vl" id="RV">0</div>
+      <div class="of" id="RO">/ 4</div>
+    </div>
+    <div class="sj">
+      <div class="lb">السجدة</div>
+      <div class="vl" id="SV">0</div>
+      <div class="of">من ٢</div>
+      <div class="dt2"><div class="d" id="D1"></div><div class="d" id="D2"></div></div>
+    </div>
+  </div>
+  <div class="cs" id="CST">جاري التحميل <i class="y"></i></div>
+  <div class="cb">
+    <div class="sn2">
+      <label>الحساسية</label>
+      <input type="range" id="SE" min="10" max="100" value="65">
+      <b id="SVL">65</b>
+    </div>
+    <div class="acts">
+      <button class="p" id="PAU" onclick="togPau()">إيقاف</button>
+      <button onclick="doRst()">إعادة</button>
+    </div>
+  </div>
+</div>
+
+<!-- 3: DONE -->
+<div class="screen" id="s3">
+  <div class="dk">&#9989;</div>
+  <div class="dh">اكتملت الصلاة!</div>
+  <div class="dn" id="DN"></div>
+  <div class="ds2">
+    <div><b id="DR">0</b><small>ركعة</small></div>
+    <div><b id="DS">0</b><small>سجدة</small></div>
+  </div>
+  <button class="dg" onclick="goH()">&#8634; صلاة جديدة</button>
+</div>
+
+<video id="V" style="display:none" playsinline autoplay muted></video>
+
+<script>
+/* === ALL FUNCTIONS ARE GLOBAL === */
+var PRAYERS=[
+  {id:'fajr',n:'الفجر',i:'\u{1F305}',r:2,c:'#60a5fa'},
+  {id:'dhuhr',n:'الظهر',i:'\u2600\uFE0F',r:4,c:'#fcd34d'},
+  {id:'asr',n:'العصر',i:'\u{1F324}\uFE0F',r:4,c:'#fb923c'},
+  {id:'maghrib',n:'المغرب',i:'\u{1F307}',r:3,c:'#f87171'},
+  {id:'isha',n:'العشاء',i:'\u{1F319}',r:4,c:'#c084fc'},
+  {id:'witr',n:'الوتر',i:'\u2728',r:3,c:'#4ade80'}
+];
+var RW=['','الأولى','الثانية','الثالثة','الرابعة','الخامسة','السادسة'];
+
+var P=null,tr=0,ts=0,rc=0,si=0,st=0;
+var suj=false,scd=false,pause=false,running=false;
+var sens=65,th=-.28+(.24*65/100),re=th+.12;
+var flashFr=0,loopId=null,poseModel=null,vidStream=null;
+var speakOn=true,speechSupported=!!window.speechSynthesis;
+
+var audioCtx=null;
+function getAudio(){
+  if(!audioCtx){try{audioCtx=new(window.AudioContext||window.webkitAudioContext)()}catch(e){}}
+  return audioCtx;
+}
+
+function playTone(freq,dur,type){
+  try{
+    var ac=getAudio();if(!ac)return;
+    if(ac.state==='suspended')ac.resume();
+    var o=ac.createOscillator(),g=ac.createGain();
+    o.connect(g);g.connect(ac.destination);
+    o.type=type||'sine';o.frequency.value=freq;
+    g.gain.setValueAtTime(.4,ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(.001,ac.currentTime+dur);
+    o.start(ac.currentTime);o.stop(ac.currentTime+dur);
+  }catch(e){}
+}
+
+function playBeepOk(){playTone(523,.1);setTimeout(function(){playTone(659,.1)},100);setTimeout(function(){playTone(784,.15)},200)}
+function playBeepRaka(){playTone(440,.12);setTimeout(function(){playTone(660,.12)},120);setTimeout(function(){playTone(880,.2)},240)}
+function playBeepDone(){playTone(523,.12,'triangle');setTimeout(function(){playTone(659,.12,'triangle')},150);setTimeout(function(){playTone(784,.12,'triangle')},300);setTimeout(function(){playTone(1047,.25,'triangle')},450)}
+function playBeepStart(){playTone(660,.15,'sine');setTimeout(function(){playTone(880,.2,'sine')},150)}
+
+function speak(t,beepType){
+  if(!speakOn)return;
+  if(beepType==='ok')playBeepOk();
+  else if(beepType==='raka')playBeepRaka();
+  else if(beepType==='done')playBeepDone();
+  else if(beepType==='start')playBeepStart();
+  else if(beepType==='beep')playTone(800,.1);
+
+  if(!speechSupported)return;
+  try{
+    var u=new SpeechSynthesisUtterance(t);
+    u.lang='ar-SA';u.rate=.8;u.pitch=1;
+    u.onerror=function(){};
+    var vs=window.speechSynthesis.getVoices();
+    for(var i=0;i<vs.length;i++){if(vs[i].lang&&vs[i].lang.indexOf('ar')===0){u.voice=vs[i];u.lang=vs[i].lang;break}}
+    window.speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+if(window.speechSynthesis){
+  window.speechSynthesis.onvoiceschanged=function(){window.speechSynthesis.getVoices()};
+  setTimeout(function(){window.speechSynthesis.getVoices()},100);
+}
+
+var video=document.getElementById('V');
+
+/* STARS */
+(function(){
+  var c=document.getElementById('S');
+  for(var i=0;i<80;i++){
+    var d=document.createElement('div');d.className='star';
+    d.style.cssText='left:'+Math.random()*100+'%;top:'+Math.random()*100+'%;--d:'+(1.5+Math.random()*3)+'s;--dl:'+(Math.random()*3)+'s;--o:'+(.4+Math.random()*.6).toFixed(2);
+    c.appendChild(d);
+  }
+})();
+
+/* PRAYER CARDS */
+(function(){
+  var g=document.getElementById('G');
+  for(var i=0;i<PRAYERS.length;i++){
+    (function(p){
+      var d=document.createElement('div');d.className='sc';
+      d.style.cssText='--c:'+p.c;
+      d.innerHTML='<div class="ic">'+p.i+'</div><div class="nm">'+p.n+'</div><div class="dt">'+p.r+' ركعات</div>';
+      d.onclick=function(){pick(p)};
+      g.appendChild(d);
+    })(PRAYERS[i]);
+  }
+})();
+
+/* SENSITIVITY */
+document.getElementById('SE').oninput=function(){
+  sens=+this.value;document.getElementById('SVL').textContent=sens;
+  th=-.28+(.24*sens/100);re=th+.12;
+};
+
+/* SPEECH - see speak function above */
+
+function togSp(){
+  speakOn=!speakOn;
+  var b=document.getElementById('SP');
+  b.className='sp2'+(speakOn?' on':'');
+  b.textContent=speakOn?'\u{1F50A}':'\u{1F507}';
+  if(speakOn)playTone(800,.08);
+}
+
+/* NAV */
+function showScr(id){
+  var ss=document.querySelectorAll('.screen');
+  for(var i=0;i<ss.length;i++) ss[i].classList.remove('active');
+  document.getElementById(id).classList.add('active');
+}
+
+function goH(){stopAll();showScr('s1')}
+
+function stopAll(){
+  stopCam();
+  if(loopId){clearTimeout(loopId);loopId=null}
+}
+
+function setSt(c,t){
+  var cls={g:'g',r:'r',y:'y',sujood:'r'}[c]||'';
+  document.getElementById('CST').innerHTML=t+' <i class="'+cls+'"></i>';
+}
+
+function upd(){
+  document.getElementById('RV').textContent=rc;
+  document.getElementById('SV').textContent=si;
+  document.getElementById('D1').className='d'+(si>=1?' f':'');
+  document.getElementById('D2').className='d'+(si>=2?' f':'');
+}
+
+/* PRAYER PICK */
+function pick(p){P=p;tr=p.r;ts=p.r*2;enter()}
+
+function goCust(){
+  var v=parseInt(document.getElementById('ci').value);
+  if(!v||v<1)return;
+  P={id:'x',n:'مخصصة',i:'\u{1F932}',r:v,c:'#e5e7eb'};
+  tr=v;ts=v*2;enter();
+}
+
+function enter(){
+  document.documentElement.style.setProperty('--acc',P.c);
+  document.getElementById('PN').textContent=P.i+' '+P.n;
+  document.getElementById('BD').textContent=tr+' ركعات';
+  document.getElementById('RO').textContent='/ '+tr;
+  rc=0;si=0;st=0;suj=false;scd=false;pause=false;flashFr=0;
+  upd();
+  setSt('y','جاري التحميل');
+  document.getElementById('PAU').textContent='إيقاف';
+  getAudio();
+  showScr('s2');
+  loadCam();
+}
+
+function togPau(){
+  pause=!pause;
+  document.getElementById('PAU').textContent=pause?'متابعة':'إيقاف';
+  setSt(pause?'y':'g',pause?'متوقف':'متصل');
+}
+
+function doRst(){
+  rc=0;si=0;st=0;suj=false;scd=false;pause=false;flashFr=0;
+  upd();setSt('g','متصل');
+  document.getElementById('PAU').textContent='إيقاف';
+}
+
+function doFlash(){
+  var f=document.getElementById('flash');f.classList.add('go');flashFr=22;
+  setTimeout(function(){f.classList.remove('go')},200);
+}
+
+function annSajda(n){
+  if(n===1)speak('السجدة الأولى','ok');
+  else if(n===2)speak('انتهت الركعة '+(RW[rc+1]||''+(rc+1)),'raka');
+}
+
+function checkDone(){
+  if(rc>=tr){
+    stopCam();if(loopId){clearTimeout(loopId);loopId=null}
+    document.getElementById('DN').textContent=P.i+' '+P.n;
+    document.getElementById('DR').textContent=rc;
+    document.getElementById('DS').textContent=st;
+    showScr('s3');
+    speak('اكتملت الصلاة '+P.n,'done');
+  }
+}
+
+function setLd(show,msg){
+  var ld=document.getElementById('LD'),m=document.getElementById('LDm');
+  if(ld)ld.className='ld'+(show?' show':'');
+  if(m)m.textContent=msg||'';
+}
+
+/* CAMERA & POSE */
+async function loadCam(){
+  setLd(true,'جاري تشغيل الكاميرا...');
+  try{
+    vidStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'user',width:{ideal:640},height:{ideal:480}},audio:false});
+    video.srcObject=vidStream;
+    await video.play();
+    setLd(true,'جاري تحميل نموذج الكشف...');
+    await loadPose();
+    setLd(false);
+    running=true;
+    setSt('g','متصل');
+    speak('بسم الله','start');
+    tick();
+  }catch(e){
+    setLd(true,'خطأ: '+e.message);
+    setSt('r','خطأ');
+  }
+}
+
+function stopCam(){
+  if(vidStream){var t=vidStream.getTracks();for(var i=0;i<t.length;i++)t[i].stop();vidStream=null}
+  video.srcObject=null;running=false;
+}
+
+async function loadPose(){
+  var FR=null,PL=null;
+  if(window.tasksVision){FR=window.tasksVision.FilesetResolver;PL=window.tasksVision.PoseLandmarker}
+  else if(window.MediaPipeTasksVision){FR=window.MediaPipeTasksVision.FilesetResolver;PL=window.MediaPipeTasksVision.PoseLandmarker}
+  else if(window.FilesetResolver){FR=window.FilesetResolver;PL=window.PoseLandmarker}
+
+  if(FR&&PL){
+    var fs=await FR.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm');
+    poseModel=await PL.createFromOptions(fs,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task',delegate:'CPU'},runningMode:'VIDEO',numPoses:1});
+    return;
+  }
+  try{
+    var mod=await import('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/+esm');
+    var fs=await mod.FilesetResolver.forVisionTasks('https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm');
+    poseModel=await mod.PoseLandmarker.createFromOptions(fs,{baseOptions:{modelAssetPath:'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task',delegate:'CPU'},runningMode:'VIDEO',numPoses:1});
+    return;
+  }catch(e2){
+    throw new Error('MediaPipe لم يُحمّل. استخدم سيرفر محلي:\npython -m http.server 8080');
+  }
+}
+
+/* MAIN LOOP */
+function tick(){
+  if(!running)return;
+  loopId=setTimeout(function(){tick()},33);
+  if(!poseModel||video.readyState<2||pause)return;
+  try{
+    var res=poseModel.detectForVideo(video,performance.now());
+    if(res.worldLandmarks&&res.worldLandmarks.length>0){
+      var ny=res.worldLandmarks[0][0].y;
+      var going=ny<th;
+      if(going&&!suj){suj=true;scd=false;document.getElementById('SV').className='vl a';setSt('sujood','سجود')}
+      if(!going&&suj){suj=false;document.getElementById('SV').className='vl';setSt('g','متصل');
+        if(!scd){scd=true;si++;st++;doFlash();upd();annSajda(si);if(si>=2){si=0;rc++;upd();checkDone()}}
+      }
+      if(!going)scd=false;
+    }
+  }catch(e){}
+}
+</script>
+</body>
+</html>
