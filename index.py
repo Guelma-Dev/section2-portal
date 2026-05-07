@@ -1,22 +1,29 @@
 import os
 import re
 import threading
-import sqlite3
 from datetime import datetime
 
-from flask import Flask, render_template, jsonify, send_from_directory, abort
+from flask import Flask, render_template, jsonify
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import cloudinary
+import cloudinary.uploader
+import cloudinary.utils
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 load_dotenv()
 
 app = Flask(__name__)
 
-# ── Configuration ─────────────────────────────────────────────────────────────
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-UPLOAD_FOLDER = os.path.join(BASE_DIR, "uploads")
-DB_PATH = os.path.join(BASE_DIR, "database.db")
+
+CLOUDINARY_URL = os.getenv("CLOUDINARY_URL")
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+if CLOUDINARY_URL:
+    cloudinary.config(cloudinary_url=CLOUDINARY_URL)
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
@@ -49,18 +56,23 @@ EXAMS = [
     {"subject": "اقتصاد المؤسسة", "date": "2026-05-18", "time": "14:00", "session": "مسائية"},
 ]
 
-# ── Database ──────────────────────────────────────────────────────────────────
+
+def get_db():
+    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+
 
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS files (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            id SERIAL PRIMARY KEY,
             subject TEXT NOT NULL,
             category TEXT NOT NULL,
             original_filename TEXT NOT NULL,
-            saved_filename TEXT NOT NULL,
+            cloudinary_url TEXT NOT NULL,
+            cloudinary_public_id TEXT NOT NULL,
+            resource_type TEXT DEFAULT 'raw',
             uploaded_at TEXT NOT NULL
         )
     """)
@@ -68,57 +80,69 @@ def init_db():
     conn.close()
 
 
-def save_file_record(subject, category, original_name, saved_name):
-    conn = sqlite3.connect(DB_PATH)
+def save_file_record(subject, category, original_name, cloudinary_url, cloudinary_public_id, resource_type):
+    conn = get_db()
     c = conn.cursor()
     c.execute(
-        "INSERT INTO files (subject, category, original_filename, saved_filename, uploaded_at) VALUES (?, ?, ?, ?, ?)",
-        (subject, category, original_name, saved_name, datetime.now().isoformat()),
+        "INSERT INTO files (subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type, uploaded_at) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        (subject, category, original_name, cloudinary_url, cloudinary_public_id, resource_type, datetime.now().isoformat()),
     )
     conn.commit()
     conn.close()
 
 
 def get_files_by_subject():
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT subject, category, original_filename, saved_filename FROM files ORDER BY uploaded_at DESC")
+    c.execute("SELECT subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type FROM files ORDER BY uploaded_at DESC")
     rows = c.fetchall()
     conn.close()
-
     result = {}
     for row in rows:
-        subj, cat, orig, saved = row
+        subj = row["subject"]
+        cat = row["category"]
         if subj not in result:
             result[subj] = {"Cours": [], "TD": [], "TP": [], "Summary": []}
         if cat in result[subj]:
+            download_url = cloudinary.utils.cloudinary_url(
+                row["cloudinary_public_id"],
+                resource_type=row["resource_type"],
+                attachment=True
+            )[0]
             result[subj][cat].append({
-                "original": orig,
-                "saved": saved,
+                "original": row["original_filename"],
+                "url": row["cloudinary_url"],
+                "download_url": download_url,
             })
     return result
 
 
 def get_recent_files(limit=20):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, subject, category, original_filename, saved_filename, uploaded_at FROM files ORDER BY uploaded_at DESC LIMIT ?", (limit,))
+    c.execute("SELECT id, subject, category, original_filename, cloudinary_url, cloudinary_public_id, uploaded_at FROM files ORDER BY uploaded_at DESC LIMIT %s", (limit,))
     rows = c.fetchall()
     conn.close()
-    return rows
+    return [(r["id"], r["subject"], r["category"], r["original_filename"], r["cloudinary_url"], r["uploaded_at"]) for r in rows]
 
 
 def delete_file_record(file_id):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT saved_filename, subject FROM files WHERE id = ?", (file_id,))
+    c.execute("SELECT cloudinary_public_id, resource_type, subject FROM files WHERE id = %s", (file_id,))
     row = c.fetchone()
     if row:
-        saved_name, subject = row
-        c.execute("DELETE FROM files WHERE id = ?", (file_id,))
+        public_id = row["cloudinary_public_id"]
+        resource_type = row["resource_type"]
+        subject = row["subject"]
+        c.execute("DELETE FROM files WHERE id = %s", (file_id,))
         conn.commit()
         conn.close()
-        return saved_name, subject
+        try:
+            cloudinary.uploader.destroy(public_id, resource_type=resource_type)
+        except:
+            pass
+        return public_id, subject
     conn.close()
     return None, None
 
@@ -130,7 +154,6 @@ def sanitize_filename(name):
         name = base[:100] + ext
     return name
 
-# ── Flask Routes ──────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
@@ -141,25 +164,6 @@ def index():
 def api_files():
     return jsonify(get_files_by_subject())
 
-
-@app.route("/uploads/<path:filename>")
-def serve_file(filename):
-    directory = os.path.dirname(os.path.join(UPLOAD_FOLDER, filename))
-    file_only = os.path.basename(filename)
-    if not os.path.exists(os.path.join(directory, file_only)):
-        abort(404)
-    return send_from_directory(directory, file_only, as_attachment=False)
-
-
-@app.route("/download/<path:filename>")
-def download_file(filename):
-    directory = os.path.dirname(os.path.join(UPLOAD_FOLDER, filename))
-    file_only = os.path.basename(filename)
-    if not os.path.exists(os.path.join(directory, file_only)):
-        abort(404)
-    return send_from_directory(directory, file_only, as_attachment=True)
-
-# ── Telegram Bot ──────────────────────────────────────────────────────────────
 
 def is_admin(message):
     return message.from_user.id == ADMIN_ID
@@ -187,7 +191,6 @@ if bot:
             return
         bot.reply_to(message, "Welcome, Admin! Choose a subject to upload a file:", reply_markup=subject_keyboard())
 
-    # Store user state: {chat_id: {"subject": ..., "category": ..., "filename": ...}}
     user_state = {}
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith("subj_"))
@@ -198,12 +201,7 @@ if bot:
         idx = int(call.data[len("subj_"):])
         subject = SUBJECTS[idx]
         user_state[call.from_user.id] = {"subject": subject}
-        bot.edit_message_text(
-            f"Subject selected: {subject}\nNow choose a category:",
-            call.message.chat.id,
-            call.message.message_id,
-            reply_markup=category_keyboard(),
-        )
+        bot.edit_message_text(f"Subject selected: {subject}\nNow choose a category:", call.message.chat.id, call.message.message_id, reply_markup=category_keyboard())
         bot.answer_callback_query(call.id)
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith("cat_"))
@@ -220,11 +218,7 @@ if bot:
             return
         state["category"] = category
         user_state[call.from_user.id] = state
-        bot.edit_message_text(
-            f"Subject: {state['subject']}\nCategory: {category}\n\nNow send me the file (PDF or image).",
-            call.message.chat.id,
-            call.message.message_id,
-        )
+        bot.edit_message_text(f"Subject: {state['subject']}\nCategory: {category}\n\nNow send me the file (PDF or image).", call.message.chat.id, call.message.message_id)
         bot.answer_callback_query(call.id)
 
     @bot.message_handler(commands=["delete"])
@@ -236,17 +230,12 @@ if bot:
         if not files:
             bot.reply_to(message, "No files found.")
             return
-
         markup = InlineKeyboardMarkup(row_width=1)
         for f in files[:20]:
-            f_id, subj, cat, orig, saved, ts = f
+            f_id, subj, cat, orig, url, ts = f
             label = f"[{subj[:20]}..] {cat} - {orig[:25]}"
             markup.add(InlineKeyboardButton(text=label, callback_data=f"del_{f_id}"))
-        bot.reply_to(
-            message,
-            "🗑 Select a file to delete (showing latest 20):",
-            reply_markup=markup,
-        )
+        bot.reply_to(message, "Select a file to delete (showing latest 20):", reply_markup=markup)
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith("del_"))
     def handle_delete_confirm(call):
@@ -254,22 +243,11 @@ if bot:
             bot.answer_callback_query(call.id, "Unauthorized")
             return
         file_id = int(call.data[len("del_"):])
-        saved_name, subject = delete_file_record(file_id)
-        if saved_name:
-            file_path = os.path.join(UPLOAD_FOLDER, subject, saved_name)
-            if os.path.exists(file_path):
-                os.remove(file_path)
-            bot.edit_message_text(
-                f"✅ File deleted successfully.",
-                call.message.chat.id,
-                call.message.message_id,
-            )
+        public_id, subject = delete_file_record(file_id)
+        if public_id:
+            bot.edit_message_text("File deleted successfully.", call.message.chat.id, call.message.message_id)
         else:
-            bot.edit_message_text(
-                "File not found or already deleted.",
-                call.message.chat.id,
-                call.message.message_id,
-            )
+            bot.edit_message_text("File not found or already deleted.", call.message.chat.id, call.message.message_id)
         bot.answer_callback_query(call.id)
 
     @bot.message_handler(content_types=["document", "photo"])
@@ -277,43 +255,32 @@ if bot:
         if not is_admin(message):
             bot.reply_to(message, "You are not authorized.")
             return
-
         state = user_state.get(message.from_user.id)
         if not state or "subject" not in state or "category" not in state:
-            bot.reply_to(
-                message,
-                "Please use /start first to choose a subject and category before sending a file.",
-            )
+            bot.reply_to(message, "Please use /start first to choose a subject and category before sending a file.")
             return
-
         subject = state["subject"]
         category = state["category"]
-
         if message.content_type == "document":
             file_info = bot.get_file(message.document.file_id)
             original_name = message.document.file_name or "document"
         else:
             file_info = bot.get_file(message.photo[-1].file_id)
             original_name = f"photo_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-
         downloaded_file = bot.download_file(file_info.file_path)
         safe_name = sanitize_filename(original_name)
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        saved_name = f"{timestamp}_{safe_name}"
-
-        subject_folder = os.path.join(UPLOAD_FOLDER, subject)
-        os.makedirs(subject_folder, exist_ok=True)
-        file_path = os.path.join(subject_folder, saved_name)
-
-        with open(file_path, "wb") as f:
-            f.write(downloaded_file)
-
-        save_file_record(subject, category, original_name, saved_name)
-
-        bot.reply_to(
-            message,
-            f"✅ File saved!\n\nSubject: {subject}\nCategory: {category}\nFile: {original_name}\n\nYou can send more files for the same subject/category.\nUse /start to change subject or category.",
+        public_id = f"{subject}/{timestamp}_{safe_name}"
+        ext = os.path.splitext(original_name)[1].lower()
+        resource_type = "image" if ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp'] else "raw"
+        upload_result = cloudinary.uploader.upload(
+            downloaded_file,
+            resource_type=resource_type,
+            public_id=public_id,
+            overwrite=True,
         )
+        save_file_record(subject, category, original_name, upload_result["secure_url"], upload_result["public_id"], upload_result.get("resource_type", resource_type))
+        bot.reply_to(message, f"File saved!\n\nSubject: {subject}\nCategory: {category}\nFile: {original_name}\n\nSend more files or use /start to change.")
 
 
 def run_bot():
@@ -325,18 +292,11 @@ def run_bot():
         bot.infinity_polling(skip_pending=True, interval=0.5, timeout=20)
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
-
 if __name__ == "__main__":
     init_db()
-
     if bot and ADMIN_ID:
         t = threading.Thread(target=run_bot, daemon=True)
         t.start()
-        print("Bot polling started in background thread.")
-    else:
-        print("Bot not configured. Set TELEGRAM_BOT_TOKEN and ADMIN_ID in .env")
-
+        print("Bot polling started.")
     port = int(os.getenv("PORT", 5000))
-    print(f"Flask server running on port {port}")
     app.run(debug=False, port=port, host="0.0.0.0")

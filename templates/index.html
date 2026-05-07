@@ -11,30 +11,22 @@
         extend: {
           colors: {
             primary: { 50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd', 400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8', 800: '#1e40af', 900: '#1e3a8a' }
-          },
-          fontFamily: { sans: ['"Segoe UI"', 'Tahoma', 'sans-serif'] }
+          }
         }
       }
     }
   </script>
   <style>
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes pulseGlow { 0%, 100% { box-shadow: 0 0 15px rgba(59,130,246,0.3); } 50% { box-shadow: 0 0 30px rgba(59,130,246,0.6); } }
     @keyframes countPop { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
     .exam-card { animation: fadeInUp 0.6s ease both; }
-    .exam-card.passed { opacity: 0.65; }
-    .countdown-num { transition: all 0.2s ease; }
     .countdown-update { animation: countPop 0.3s ease; }
-    .glow-border { animation: pulseGlow 2s ease-in-out infinite; }
-    .glass { background: rgba(255,255,255,0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
   </style>
 </head>
-<body class="bg-gray-50 font-sans antialiased" dir="rtl">
+<body class="bg-gray-50 font-sans antialiased">
 
-  <!-- Header -->
-  <header class="bg-gradient-to-r from-primary-700 via-primary-800 to-primary-900 text-white shadow-lg relative overflow-hidden">
-    <div class="absolute inset-0 opacity-10" style="background-image: radial-gradient(circle at 20% 50%, rgba(255,255,255,0.3) 0%, transparent 60%);"></div>
-    <div class="max-w-6xl mx-auto px-4 py-6 relative">
+  <header class="bg-gradient-to-r from-primary-700 via-primary-800 to-primary-900 text-white shadow-lg">
+    <div class="max-w-6xl mx-auto px-4 py-6">
       <h1 class="text-2xl md:text-4xl font-bold tracking-tight">Section 2 - Groupe 12 | Portal</h1>
       <p class="text-primary-200 text-sm md:text-base mt-1">الموارد الأكاديمية والملفات الدراسية</p>
     </div>
@@ -42,64 +34,49 @@
 
   <main class="max-w-6xl mx-auto px-4 py-6">
 
-    <!-- ⏳ Exam Countdown Section -->
+    <!-- Exam Countdown -->
     <section class="mb-10">
-      <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-indigo-900 rounded-2xl shadow-xl overflow-hidden relative">
-        <div class="absolute inset-0 opacity-5" style="background-image: url('data:image/svg+xml,%3Csvg width=\"60\" height=\"60\" viewBox=\"0 0 60 60\" xmlns=\"http://www.w3.org/2000/svg\"%3E%3Cg fill=\"none\" fill-rule=\"evenodd\"%3E%3Cg fill=\"%23ffffff\" fill-opacity=\"1\"%3E%3Cpath d=\"M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z\"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');"></div>
-        <div class="relative px-5 py-6 md:px-8 md:py-8">
-          <div class="flex items-center gap-3 mb-1">
-            <span class="text-2xl md:text-3xl">📅</span>
-            <h2 class="text-xl md:text-2xl font-bold text-white">جدول الامتحانات النهائية</h2>
-          </div>
-          <p class="text-primary-200 text-sm md:text-base">الفترة الصباحية (08:30 - 10:30) • الفترة المسائية (14:00 - 16:00)</p>
-
-          <!-- Session Filters -->
-          <div class="flex gap-2 mt-4">
-            <button id="filter-all" class="px-4 py-1.5 rounded-full text-xs font-medium bg-white text-primary-700 shadow-md transition-all" onclick="filterExams('all')">الكل</button>
-            <button id="filter-morning" class="px-4 py-1.5 rounded-full text-xs font-medium bg-white bg-opacity-20 text-white hover:bg-opacity-30 transition-all" onclick="filterExams('صباحية')">صباحي</button>
-            <button id="filter-evening" class="px-4 py-1.5 rounded-full text-xs font-medium bg-white bg-opacity-20 text-white hover:bg-opacity-30 transition-all" onclick="filterExams('مسائية')">مسائي</button>
-          </div>
+      <div class="bg-gradient-to-br from-primary-600 via-primary-700 to-indigo-900 rounded-2xl shadow-xl p-6">
+        <div class="flex items-center gap-3 mb-1">
+          <span class="text-2xl md:text-3xl">📅</span>
+          <h2 class="text-xl md:text-2xl font-bold text-white">جدول الامتحانات النهائية</h2>
+        </div>
+        <p class="text-primary-200 text-sm">الفترة الصباحية (08:30 - 10:30) • الفترة المسائية (14:00 - 16:00)</p>
+        <div class="flex gap-2 mt-4">
+          <button id="filter-all" class="px-4 py-1.5 rounded-full text-xs font-medium bg-white text-primary-700 shadow-md" onclick="filterExams('all')">الكل</button>
+          <button id="filter-morning" class="px-4 py-1.5 rounded-full text-xs font-medium bg-white bg-opacity-20 text-white hover:bg-opacity-30" onclick="filterExams('صباحية')">صباحي</button>
+          <button id="filter-evening" class="px-4 py-1.5 rounded-full text-xs font-medium bg-white bg-opacity-20 text-white hover:bg-opacity-30" onclick="filterExams('مسائية')">مسائي</button>
         </div>
       </div>
-
-      <!-- Exam Cards Grid -->
       <div id="exam-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5"></div>
     </section>
 
-    <!-- divider -->
     <div class="flex items-center gap-3 mb-6">
       <span class="h-px flex-1 bg-gradient-to-r from-transparent via-gray-300 to-transparent"></span>
       <span class="text-gray-400 text-xs font-medium tracking-widest">المواد الدراسية</span>
       <span class="h-px flex-1 bg-gradient-to-r from-transparent via-gray-300 to-transparent"></span>
     </div>
 
-    <!-- Subjects Grid -->
     <div id="subjects-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
 
-    <!-- Footer -->
     <footer class="mt-12 text-center text-gray-400 text-xs border-t border-gray-200 pt-6">
       تم إنشاء الموقع بواسطة <a href="https://t.me/vmw23" target="_blank" class="text-primary-600 hover:underline font-medium">@vmw23</a> &copy; 2026
     </footer>
   </main>
 
-  <!-- Modal Overlay -->
-  <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden transition-opacity" onclick="closeModal()"></div>
-
   <!-- Modal -->
-  <div id="modal" class="fixed inset-x-0 bottom-0 z-50 transform translate-y-full transition-transform duration-300 ease-in-out md:inset-y-0 md:right-0 md:left-auto md:w-3/4 lg:w-2/3 xl:w-1/2 md:translate-y-0 md:translate-x-full md:transition-transform md:duration-300 bg-white rounded-t-2xl md:rounded-l-2xl md:rounded-tr-none shadow-2xl overflow-hidden" style="max-height: 90vh;">
+  <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-40 hidden" onclick="closeModal()"></div>
+  <div id="modal" class="fixed inset-x-0 bottom-0 z-50 transform translate-y-full transition-transform duration-300 md:inset-y-0 md:right-0 md:left-auto md:w-3/4 lg:w-2/3 xl:w-1/2 md:translate-y-0 md:translate-x-full md:transition-transform md:duration-300 bg-white rounded-t-2xl md:rounded-l-2xl shadow-2xl overflow-hidden" style="max-height: 90vh;">
     <div class="flex flex-col h-full">
       <div class="flex items-center justify-between bg-primary-700 text-white px-5 py-4">
-        <h2 id="modal-title" class="text-lg font-semibold truncate pr-2"></h2>
-        <button onclick="closeModal()" class="text-white hover:text-primary-200 focus:outline-none flex-shrink-0">
+        <h2 id="modal-title" class="text-lg font-semibold truncate"></h2>
+        <button onclick="closeModal()" class="text-white hover:text-primary-200">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
       <div id="modal-body" class="flex-1 overflow-y-auto p-5">
         <div id="modal-loading" class="text-center py-10 text-gray-400">جاري تحميل الملفات...</div>
         <div id="modal-content" class="hidden space-y-6"></div>
-      </div>
-      <div class="md:hidden p-3 border-t border-gray-200">
-        <button onclick="closeModal()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-medium py-2 px-4 rounded-lg transition-colors">إغلاق</button>
       </div>
     </div>
   </div>
@@ -108,242 +85,98 @@
     const SUBJECTS = {{ subjects | tojson }};
     const EXAMS = {{ exams | tojson }};
     let allFiles = {};
-    let currentSubject = null;
     let countdownIntervals = [];
+    const DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'ماي', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
 
-    const ARABIC_DAYS = ['الأحد', 'الإثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-    const ARABIC_MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'ماي', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-
-    function formatDate(dateStr) {
-      const d = new Date(dateStr + 'T00:00:00');
-      return `${ARABIC_DAYS[d.getDay()]}، ${d.getDate()} ${ARABIC_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
-    }
+    function fmtDate(s) { const d = new Date(s + 'T00:00:00'); return DAYS[d.getDay()] + '، ' + d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
 
     function renderExams(filter) {
+      clearInterval(...countdownIntervals);
       const grid = document.getElementById('exam-grid');
       grid.innerHTML = '';
-      countdownIntervals.forEach(clearInterval);
-      countdownIntervals = [];
-
-      EXAMS.forEach((exam, idx) => {
-        if (filter && filter !== 'all' && exam.session !== filter) return;
+      EXAMS.forEach((e, i) => {
+        if (filter && filter !== 'all' && e.session !== filter) return;
+        const d = new Date(e.date + 'T' + e.time + ':00');
+        const p = d < new Date();
+        const sc = e.session === 'صباحية' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700';
         const card = document.createElement('div');
-        card.className = 'exam-card glass border border-gray-100 rounded-xl shadow-sm overflow-hidden';
-        card.style.animationDelay = (idx * 0.07) + 's';
-        card.id = 'exam-card-' + idx;
-
-        const examDate = new Date(exam.date + 'T' + exam.time + ':00');
-        const now = new Date();
-        const passed = examDate < now;
-
-        const sessionColor = exam.session === 'صباحية' ? 'bg-amber-100 text-amber-700' : 'bg-indigo-100 text-indigo-700';
-
-        card.innerHTML = `
-          <div class="p-4 ${passed ? 'opacity-60' : ''}">
-            <div class="flex items-start justify-between mb-2">
-              <h3 class="font-bold text-gray-800 text-sm leading-tight ml-2">${exam.subject}</h3>
-              <span class="flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-medium ${sessionColor}">${exam.session === 'صباحية' ? '🌅' : '🌙'} ${exam.session}</span>
-            </div>
-            <p class="text-gray-500 text-xs mb-1">${formatDate(exam.date)}</p>
-            <p class="text-gray-400 text-xs mb-3">⏰ ${exam.time}</p>
-            <div id="countdown-${idx}" class="flex gap-2">
-              ${passed ? `<span class="text-red-500 text-sm font-medium">✅ انتهى الامتحان</span>` : `
-                <div class="flex-1 bg-gray-100 rounded-lg p-2 text-center">
-                  <div class="countdown-num text-lg md:text-xl font-bold text-primary-600" id="days-${idx}">--</div>
-                  <div class="text-[10px] text-gray-400 mt-0.5">يوم</div>
-                </div>
-                <div class="flex-1 bg-gray-100 rounded-lg p-2 text-center">
-                  <div class="countdown-num text-lg md:text-xl font-bold text-primary-600" id="hours-${idx}">--</div>
-                  <div class="text-[10px] text-gray-400 mt-0.5">ساعة</div>
-                </div>
-                <div class="flex-1 bg-gray-100 rounded-lg p-2 text-center">
-                  <div class="countdown-num text-lg md:text-xl font-bold text-primary-600" id="mins-${idx}">--</div>
-                  <div class="text-[10px] text-gray-400 mt-0.5">دقيقة</div>
-                </div>
-                <div class="flex-1 bg-gray-100 rounded-lg p-2 text-center">
-                  <div class="countdown-num text-lg md:text-xl font-bold text-primary-600" id="secs-${idx}">--</div>
-                  <div class="text-[10px] text-gray-400 mt-0.5">ثانية</div>
-                </div>
-              `}
-            </div>
-          </div>
-          ${!passed ? `<div class="h-1 bg-gradient-to-l from-primary-500 to-primary-300" id="progress-${idx}"></div>` : ''}
-        `;
-
+        card.className = 'exam-card bg-white border border-gray-100 rounded-xl shadow-sm overflow-hidden';
+        card.style.animationDelay = (i * 0.07) + 's';
+        card.innerHTML = `<div class="p-4 ${p ? 'opacity-60' : ''}"><div class="flex justify-between items-start mb-2"><h3 class="font-bold text-gray-800 text-sm">${e.subject}</h3><span class="px-2 py-0.5 rounded-full text-xs font-medium ${sc}">${e.session}</span></div><p class="text-gray-500 text-xs mb-1">${fmtDate(e.date)}</p><p class="text-gray-400 text-xs mb-3">⏰ ${e.time}</p><div id="cd-${i}" class="flex gap-2">${p ? '<span class="text-red-500 text-sm font-medium">✅ انتهى الامتحان</span>' : '<div class="flex-1 bg-gray-100 rounded-lg p-2 text-center"><div class="text-lg font-bold text-primary-600" id="d-'+i+'">--</div><div class="text-[10px] text-gray-400">يوم</div></div><div class="flex-1 bg-gray-100 rounded-lg p-2 text-center"><div class="text-lg font-bold text-primary-600" id="h-'+i+'">--</div><div class="text-[10px] text-gray-400">ساعة</div></div><div class="flex-1 bg-gray-100 rounded-lg p-2 text-center"><div class="text-lg font-bold text-primary-600" id="m-'+i+'">--</div><div class="text-[10px] text-gray-400">دقيقة</div></div><div class="flex-1 bg-gray-100 rounded-lg p-2 text-center"><div class="text-lg font-bold text-primary-600" id="s-'+i+'">--</div><div class="text-[10px] text-gray-400">ثانية</div></div>'}</div></div>`;
         grid.appendChild(card);
-
-        if (!passed) {
-          const interval = setInterval(() => {
-            const now = new Date();
-            const diff = examDate - now;
-            if (diff <= 0) {
-              document.getElementById('countdown-' + idx).innerHTML = '<span class="text-red-500 text-sm font-medium">✅ انتهى الامتحان</span>';
-              clearInterval(interval);
-              return;
-            }
-            const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((diff / (1000 * 60 * 60)) % 24);
-            const mins = Math.floor((diff / (1000 * 60)) % 60);
-            const secs = Math.floor((diff / 1000) % 60);
-
-            for (const [id, val] of [['days-' + idx, days], ['hours-' + idx, hours], ['mins-' + idx, mins], ['secs-' + idx, secs]]) {
-              const el = document.getElementById(id);
-              if (el && el.textContent !== String(val).padStart(2, '0')) {
-                el.textContent = String(val).padStart(2, '0');
-                el.classList.remove('countdown-update');
-                void el.offsetWidth;
-                el.classList.add('countdown-update');
-              }
-            }
+        if (!p) {
+          const iv = setInterval(() => {
+            const diff = d - new Date();
+            if (diff <= 0) { document.getElementById('cd-'+i).innerHTML = '<span class="text-red-500 text-sm font-medium">✅ انتهى الامتحان</span>'; clearInterval(iv); return; }
+            const upd = (id, v) => { const el = document.getElementById(id); if (el) { const s = String(v).padStart(2,'0'); if (el.textContent !== s) { el.textContent = s; el.classList.remove('countdown-update'); void el.offsetWidth; el.classList.add('countdown-update'); } } };
+            upd('d-'+i, Math.floor(diff/86400000)); upd('h-'+i, Math.floor((diff%86400000)/3600000)); upd('m-'+i, Math.floor((diff%3600000)/60000)); upd('s-'+i, Math.floor((diff%60000)/1000));
           }, 1000);
-          countdownIntervals.push(interval);
+          countdownIntervals.push(iv);
         }
       });
     }
 
-    function filterExams(filter) {
-      document.querySelectorAll('[id^="filter-"]').forEach(b => {
-        b.className = 'px-4 py-1.5 rounded-full text-xs font-medium bg-white bg-opacity-20 text-white hover:bg-opacity-30 transition-all';
-      });
-      const btn = document.getElementById(filter === 'all' ? 'filter-all' : filter === 'صباحية' ? 'filter-morning' : 'filter-evening');
-      if (btn) btn.className = 'px-4 py-1.5 rounded-full text-xs font-medium bg-white text-primary-700 shadow-md transition-all';
-      renderExams(filter);
+    function filterExams(f) {
+      document.querySelectorAll('[id^="filter-"]').forEach(b => b.className = 'px-4 py-1.5 rounded-full text-xs font-medium bg-white bg-opacity-20 text-white hover:bg-opacity-30');
+      const b = document.getElementById(f === 'all' ? 'filter-all' : f === 'صباحية' ? 'filter-morning' : 'filter-evening');
+      if (b) b.className = 'px-4 py-1.5 rounded-full text-xs font-medium bg-white text-primary-700 shadow-md';
+      renderExams(f);
     }
 
-    // ── Subject Cards ──
-    const COLORS = [
-      { bg: 'bg-blue-50', border: 'border-blue-200', icon: 'text-blue-500', hover: 'hover:border-blue-400 hover:shadow-blue-100' },
-      { bg: 'bg-indigo-50', border: 'border-indigo-200', icon: 'text-indigo-500', hover: 'hover:border-indigo-400 hover:shadow-indigo-100' },
-      { bg: 'bg-emerald-50', border: 'border-emerald-200', icon: 'text-emerald-500', hover: 'hover:border-emerald-400 hover:shadow-emerald-100' },
-      { bg: 'bg-amber-50', border: 'border-amber-200', icon: 'text-amber-500', hover: 'hover:border-amber-400 hover:shadow-amber-100' },
-      { bg: 'bg-rose-50', border: 'border-rose-200', icon: 'text-rose-500', hover: 'hover:border-rose-400 hover:shadow-rose-100' },
-      { bg: 'bg-purple-50', border: 'border-purple-200', icon: 'text-purple-500', hover: 'hover:border-purple-400 hover:shadow-purple-100' },
-      { bg: 'bg-cyan-50', border: 'border-cyan-200', icon: 'text-cyan-500', hover: 'hover:border-cyan-400 hover:shadow-cyan-100' },
-      { bg: 'bg-teal-50', border: 'border-teal-200', icon: 'text-teal-500', hover: 'hover:border-teal-400 hover:shadow-teal-100' },
-      { bg: 'bg-orange-50', border: 'border-orange-200', icon: 'text-orange-500', hover: 'hover:border-orange-400 hover:shadow-orange-100' },
-    ];
-
-    function getInitials(name) { return name.slice(0, 2); }
+    const C = [{bg:'bg-blue-50',border:'border-blue-200',icon:'text-blue-500',h:'hover:border-blue-400 hover:shadow-blue-100'},{bg:'bg-indigo-50',border:'border-indigo-200',icon:'text-indigo-500',h:'hover:border-indigo-400 hover:shadow-indigo-100'},{bg:'bg-emerald-50',border:'border-emerald-200',icon:'text-emerald-500',h:'hover:border-emerald-400 hover:shadow-emerald-100'},{bg:'bg-amber-50',border:'border-amber-200',icon:'text-amber-500',h:'hover:border-amber-400 hover:shadow-amber-100'},{bg:'bg-rose-50',border:'border-rose-200',icon:'text-rose-500',h:'hover:border-rose-400 hover:shadow-rose-100'},{bg:'bg-purple-50',border:'border-purple-200',icon:'text-purple-500',h:'hover:border-purple-400 hover:shadow-purple-100'},{bg:'bg-cyan-50',border:'border-cyan-200',icon:'text-cyan-500',h:'hover:border-cyan-400 hover:shadow-cyan-100'},{bg:'bg-teal-50',border:'border-teal-200',icon:'text-teal-500',h:'hover:border-teal-400 hover:shadow-teal-100'},{bg:'bg-orange-50',border:'border-orange-200',icon:'text-orange-500',h:'hover:border-orange-400 hover:shadow-orange-100'}];
+    function gi(n) { return n.slice(0,2); }
 
     function renderCards() {
-      const grid = document.getElementById('subjects-grid');
-      grid.innerHTML = SUBJECTS.map((subject, i) => {
-        const c = COLORS[i % COLORS.length];
-        return `
-          <button onclick="openModal('${subject.replace(/'/g, "\\'")}')"
-                  class="group text-right ${c.bg} ${c.border} ${c.hover} border-2 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary-500">
-            <div class="flex items-center gap-3">
-              <div class="w-10 h-10 rounded-lg ${c.icon} bg-white bg-opacity-80 flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0">${getInitials(subject)}</div>
-              <span class="font-medium text-gray-800 text-sm leading-tight">${subject}</span>
-            </div>
-            <div class="mt-3 flex items-center text-xs ${c.icon} gap-1">
-              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-              عرض الملفات
-            </div>
-          </button>
-        `;
-      }).join('');
+      const g = document.getElementById('subjects-grid');
+      g.innerHTML = SUBJECTS.map((s, i) => { const c = C[i%9]; return `<button onclick="openModal('${s.replace(/'/g,"\\'")}')" class="group text-right ${c.bg} ${c.border} ${c.h} border-2 rounded-xl p-5 shadow-sm hover:shadow-md transition-all focus:outline-none focus:ring-2 focus:ring-primary-500"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg ${c.icon} bg-white bg-opacity-80 flex items-center justify-center text-sm font-bold shadow-sm flex-shrink-0">${gi(s)}</div><span class="font-medium text-gray-800 text-sm">${s}</span></div><div class="mt-3 flex items-center text-xs ${c.icon} gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> عرض الملفات</div></button>`; }).join('');
     }
 
-    // ── Modal ──
-    async function openModal(subject) {
-      currentSubject = subject;
-      document.getElementById('modal-title').textContent = subject;
+    async function openModal(s) {
+      document.getElementById('modal-title').textContent = s;
       document.getElementById('modal-content').classList.add('hidden');
       document.getElementById('modal-loading').classList.remove('hidden');
       document.getElementById('modal-overlay').classList.remove('hidden');
-      const modal = document.getElementById('modal');
-      modal.classList.remove('translate-y-full', 'md:translate-x-full');
-      modal.classList.add('translate-y-0', 'md:translate-x-0');
+      const m = document.getElementById('modal');
+      m.classList.remove('translate-y-full','md:translate-x-full');
+      m.classList.add('translate-y-0','md:translate-x-0');
       document.body.classList.add('overflow-hidden');
-      if (Object.keys(allFiles).length === 0) {
-        try { const res = await fetch('/api/files'); allFiles = await res.json(); } catch (e) {}
-      }
-      renderModalContent(subject);
+      if (!Object.keys(allFiles).length) { try { const r = await fetch('/api/files'); allFiles = await r.json(); } catch(e) {} }
+      renderModal(s);
     }
 
     function closeModal() {
-      const modal = document.getElementById('modal');
-      modal.classList.remove('translate-y-0', 'md:translate-x-0');
-      modal.classList.add('translate-y-full', 'md:translate-x-full');
+      const m = document.getElementById('modal');
+      m.classList.remove('translate-y-0','md:translate-x-0');
+      m.classList.add('translate-y-full','md:translate-x-full');
       document.getElementById('modal-overlay').classList.add('hidden');
       document.body.classList.remove('overflow-hidden');
     }
 
-    function renderModalContent(subject) {
-      const container = document.getElementById('modal-content');
-      const loading = document.getElementById('modal-loading');
-      const files = allFiles[subject];
-      const categories = ['Cours', 'TD', 'TP', 'Summary'];
-      container.innerHTML = '';
-      let hasAny = false;
-
-      categories.forEach(cat => {
-        const items = files && files[cat] ? files[cat] : [];
-        hasAny = hasAny || items.length > 0;
-        const section = document.createElement('div');
-
-        if (items.length === 0) {
-          section.innerHTML = `
-            <div class="border-l-4 border-gray-200 bg-gray-50 rounded-r-lg p-4">
-              <h3 class="font-semibold text-gray-400 text-sm uppercase tracking-wider">${cat}</h3>
-              <p class="text-gray-300 text-xs mt-1">لا توجد ملفات بعد.</p>
-            </div>`;
+    function renderModal(s) {
+      const c = document.getElementById('modal-content'), l = document.getElementById('modal-loading');
+      const f = allFiles[s], cats = ['Cours','TD','TP','Summary'];
+      c.innerHTML = ''; let h = false;
+      cats.forEach(cat => {
+        const items = f && f[cat] ? f[cat] : []; h = h || items.length > 0;
+        const sec = document.createElement('div');
+        if (!items.length) {
+          sec.innerHTML = `<div class="border-r-4 border-gray-200 bg-gray-50 rounded-l-lg p-4"><h3 class="font-semibold text-gray-400 text-sm">${cat}</h3><p class="text-gray-300 text-xs mt-1">لا توجد ملفات بعد.</p></div>`;
         } else {
-          const catColors = { 'Cours': 'border-l-blue-500 bg-blue-50', 'TD': 'border-l-emerald-500 bg-emerald-50', 'TP': 'border-l-amber-500 bg-amber-50', 'Summary': 'border-l-purple-500 bg-purple-50' };
-          const catHeaderColors = { 'Cours': 'text-blue-700', 'TD': 'text-emerald-700', 'TP': 'text-amber-700', 'Summary': 'text-purple-700' };
-
-          const rows = items.map((f, idx) => {
-            const encodedPath = encodeURIComponent(`${subject}/${f.saved}`);
-            const isPdf = f.original.toLowerCase().endsWith('.pdf');
-            return `
-              <tr class="${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-gray-100 transition-colors">
-                <td class="px-3 py-2.5 text-xs text-gray-700 max-w-0 truncate" title="${f.original}">
-                  <span class="inline-flex items-center gap-1">
-                    ${isPdf ? '<svg class="w-3.5 h-3.5 text-red-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>' : ''}
-                    ${f.original}
-                  </span>
-                </td>
-                <td class="px-1 py-2.5 whitespace-nowrap text-left">
-                  <a href="/uploads/${encodedPath}" target="_blank" class="inline-block text-primary-600 hover:text-primary-800 hover:bg-primary-50 p-1.5 rounded transition-colors" title="عرض">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                  </a>
-                  <a href="/download/${encodedPath}" class="inline-block text-primary-600 hover:text-primary-800 hover:bg-primary-50 p-1.5 rounded transition-colors" title="تحميل">
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-                  </a>
-                </td>
-              </tr>`;
-          }).join('');
-
-          section.innerHTML = `
-            <div class="border-r-4 ${catColors[cat]} rounded-l-lg overflow-hidden">
-              <div class="px-4 py-3 ${catHeaderColors[cat]}">
-                <h3 class="font-semibold text-sm uppercase tracking-wider">${cat}</h3>
-              </div>
-              <div class="overflow-x-auto"><table class="w-full text-sm"><tbody>${rows}</tbody></table></div>
-            </div>`;
+          const cc = {Cours:'border-r-blue-500 bg-blue-50',TD:'border-r-emerald-500 bg-emerald-50',TP:'border-r-amber-500 bg-amber-50',Summary:'border-r-purple-500 bg-purple-50'};
+          const ch = {Cours:'text-blue-700',TD:'text-emerald-700',TP:'text-amber-700',Summary:'text-purple-700'};
+          const rows = items.map((x, idx) => { const pdf = x.original.toLowerCase().endsWith('.pdf'); return `<tr class="${idx%2===0?'bg-white':'bg-gray-50'} hover:bg-gray-100"><td class="px-3 py-2.5 text-xs text-gray-700 truncate max-w-0">${pdf ? '<svg class="w-3.5 h-3.5 text-red-500 inline" fill="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> ' : ''}${x.original}</td><td class="px-1 py-2.5 text-left whitespace-nowrap"><a href="${x.url}" target="_blank" class="text-primary-600 hover:text-primary-800 p-1.5 inline-block" title="عرض"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a><a href="${x.download_url}" class="text-primary-600 hover:text-primary-800 p-1.5 inline-block" title="تحميل"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></a></td></tr>`; }).join('');
+          sec.innerHTML = `<div class="border-r-4 ${cc[cat]} rounded-l-lg overflow-hidden"><div class="px-4 py-3 ${ch[cat]}"><h3 class="font-semibold text-sm">${cat}</h3></div><div class="overflow-x-auto"><table class="w-full text-sm"><tbody>${rows}</tbody></table></div></div>`;
         }
-        container.appendChild(section);
+        c.appendChild(sec);
       });
-
-      if (!hasAny) {
-        container.innerHTML = `
-          <div class="text-center py-8">
-            <svg class="w-16 h-16 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
-            <p class="text-gray-400 text-sm">لا توجد ملفات مرفوعة بعد لهذه المادة.</p>
-          </div>`;
-      }
-
-      loading.classList.add('hidden');
-      container.classList.remove('hidden');
+      if (!h) c.innerHTML = '<div class="text-center py-10 text-gray-400">لا توجد ملفات مرفوعة بعد لهذه المادة.</div>';
+      l.classList.add('hidden'); c.classList.remove('hidden');
     }
 
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
-
-    // Init
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
     renderExams('all');
     renderCards();
   </script>
-
 </body>
 </html>
