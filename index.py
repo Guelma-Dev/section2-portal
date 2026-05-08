@@ -104,8 +104,14 @@ def get_files_by_subject():
         if subj not in result:
             result[subj] = {"Cours": [], "TD": [], "TP": [], "Summary": []}
         if cat in result[subj]:
-            url = row["cloudinary_url"]
-            download_url = url.replace("/upload/", "/upload/fl_attachment/")
+            public_id = row["cloudinary_public_id"]
+            resource_type = row["resource_type"]
+            url = cloudinary.utils.cloudinary_url(
+                public_id, resource_type=resource_type, sign_url=True
+            )[0]
+            download_url = cloudinary.utils.cloudinary_url(
+                public_id, resource_type=resource_type, attachment=True, sign_url=True
+            )[0]
             result[subj][cat].append({
                 "original": row["original_filename"],
                 "url": url,
