@@ -86,10 +86,10 @@ def init_db():
 def migrate_old_urls():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, cloudinary_url, cloudinary_public_id, resource_type FROM files WHERE cloudinary_url LIKE '%/s--%'")
+    c.execute("SELECT id, cloudinary_url FROM files WHERE cloudinary_url LIKE '%/s--%'")
     rows = c.fetchall()
     for row in rows:
-        unsigned_url = cloudinary.utils.cloudinary_url(row["cloudinary_public_id"], resource_type=row["resource_type"], secure=True)[0]
+        unsigned_url = re.sub(r'/s--[^/]+--/', '/', row["cloudinary_url"])
         c.execute("UPDATE files SET cloudinary_url = %s WHERE id = %s", (unsigned_url, row["id"]))
     if rows:
         conn.commit()
@@ -110,7 +110,7 @@ def save_file_record(subject, category, original_name, cloudinary_url, cloudinar
 def get_files_by_subject():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT subject, category, original_filename, cloudinary_public_id, resource_type FROM files ORDER BY uploaded_at DESC")
+    c.execute("SELECT subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type FROM files ORDER BY uploaded_at DESC")
     rows = c.fetchall()
     conn.close()
     result = {}
@@ -120,10 +120,8 @@ def get_files_by_subject():
         if subj not in result:
             result[subj] = {"Cours": [], "TD": [], "TP": [], "Summary": []}
         if cat in result[subj]:
-            public_id = row["cloudinary_public_id"]
-            resource_type = row["resource_type"]
-            url = cloudinary.utils.cloudinary_url(public_id, resource_type=resource_type, secure=True)[0]
-            download_url = cloudinary.utils.cloudinary_url(public_id, resource_type=resource_type, secure=True, attachment=True)[0]
+            url = row["cloudinary_url"]
+            download_url = url + "?fl_attachment=1"
             result[subj][cat].append({
                 "original": row["original_filename"],
                 "url": url,
