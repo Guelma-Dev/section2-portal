@@ -1,9 +1,12 @@
 import os
 import re
+import json
 import threading
+import urllib.request
+from urllib.parse import unquote
 from datetime import datetime
 
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -175,6 +178,44 @@ def index():
 @app.route("/api/files")
 def api_files():
     return jsonify(get_files_by_subject())
+
+
+@app.route("/api/migrate")
+def api_migrate():
+    if str(ADMIN_ID) not in (request.args.get("key") or ""):
+        return jsonify({"error": "unauthorized"}), 403
+    old_url = "https://section2-portal-1.onrender.com/api/files"
+    try:
+        resp = urllib.request.urlopen(old_url, timeout=15)
+        data = json.loads(resp.read())
+    except Exception as e:
+        return jsonify({"error": f"fetch failed: {e}"}), 502
+    conn = get_db()
+    c = conn.cursor()
+    count = 0
+    for subject, categories in data.items():
+        for category, files in categories.items():
+            for f in files:
+                url = f["url"]
+                m = re.match(r'https://res\.cloudinary\.com/[^/]+/([^/]+)/upload/v\d+/(.+)', url)
+                if not m:
+                    continue
+                resource_type = m.group(1)
+                public_id = unquote(m.group(2))
+                c.execute(
+                    "SELECT COUNT(*) AS cnt FROM files WHERE cloudinary_public_id = %s",
+                    (public_id,),
+                )
+                if c.fetchone()["cnt"] > 0:
+                    continue
+                c.execute(
+                    "INSERT INTO files (subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type, uploaded_at) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                    (subject, category, f["original"], url, public_id, resource_type, datetime.now().isoformat()),
+                )
+                count += 1
+    conn.commit()
+    conn.close()
+    return jsonify({"migrated": count})
 
 
 def is_admin(message):
