@@ -144,6 +144,9 @@ def get_files_by_subject():
                 "original": row["original_filename"],
                 "url": url,
                 "download_url": download_url,
+                "_debug_url": row["cloudinary_url"],
+                "_debug_pid": row["cloudinary_public_id"],
+                "_debug_rt": row["resource_type"],
             })
     return result
 
