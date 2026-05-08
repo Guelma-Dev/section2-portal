@@ -80,6 +80,19 @@ def init_db():
     conn.close()
 
 
+def migrate_old_urls():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, cloudinary_url, cloudinary_public_id, resource_type FROM files WHERE cloudinary_url LIKE '%/s--%'")
+    rows = c.fetchall()
+    for row in rows:
+        unsigned_url = cloudinary.utils.cloudinary_url(row["cloudinary_public_id"], resource_type=row["resource_type"], secure=True)[0]
+        c.execute("UPDATE files SET cloudinary_url = %s WHERE id = %s", (unsigned_url, row["id"]))
+    if rows:
+        conn.commit()
+    conn.close()
+
+
 def save_file_record(subject, category, original_name, cloudinary_url, cloudinary_public_id, resource_type):
     conn = get_db()
     c = conn.cursor()
@@ -94,7 +107,7 @@ def save_file_record(subject, category, original_name, cloudinary_url, cloudinar
 def get_files_by_subject():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type FROM files ORDER BY uploaded_at DESC")
+    c.execute("SELECT subject, category, original_filename, cloudinary_public_id, resource_type FROM files ORDER BY uploaded_at DESC")
     rows = c.fetchall()
     conn.close()
     result = {}
@@ -106,16 +119,8 @@ def get_files_by_subject():
         if cat in result[subj]:
             public_id = row["cloudinary_public_id"]
             resource_type = row["resource_type"]
-            version = None
-            m = re.search(r'/v(\d+)/', row["cloudinary_url"])
-            if m:
-                version = m.group(1)
-            opts = dict(resource_type=resource_type, sign_url=True, secure=True)
-            if version:
-                opts["version"] = version
-            url = cloudinary.utils.cloudinary_url(public_id, **opts)[0]
-            opts["attachment"] = True
-            download_url = cloudinary.utils.cloudinary_url(public_id, **opts)[0]
+            url = cloudinary.utils.cloudinary_url(public_id, resource_type=resource_type, secure=True)[0]
+            download_url = cloudinary.utils.cloudinary_url(public_id, resource_type=resource_type, secure=True, attachment=True)[0]
             result[subj][cat].append({
                 "original": row["original_filename"],
                 "url": url,
@@ -302,6 +307,7 @@ def run_bot():
 if __name__ == "__main__":
     try:
         init_db()
+        migrate_old_urls()
     except Exception as e:
         print(f"ERROR init_db: {e}")
         raise
