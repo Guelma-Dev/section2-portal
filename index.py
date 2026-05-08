@@ -1,12 +1,8 @@
 import os
 import re
 import json
-import io
 import threading
 from datetime import datetime
-
-import urllib.request
-import urllib.error
 
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
@@ -132,17 +128,7 @@ def get_files_by_subject():
         if subj not in result:
             result[subj] = {"Cours": [], "TD": [], "TP": [], "Summary": []}
         if cat in result[subj]:
-            version = None
-            m = re.search(r'/v(\d+)/', row["cloudinary_url"])
-            if m:
-                version = m.group(1)
-            url, _ = cloudinary.utils.cloudinary_url(
-                row["cloudinary_public_id"],
-                resource_type=row["resource_type"],
-                secure=True,
-                sign_url=True,
-                version=version,
-            )
+            url = row["cloudinary_url"]
             download_url = url + "?fl_attachment=1"
             result[subj][cat].append({
                 "original": row["original_filename"],
@@ -200,67 +186,7 @@ def api_files():
     return jsonify(get_files_by_subject())
 
 
-@app.route("/api/debug_upload")
-def api_debug_upload():
-    """Upload test files to check Cloudinary settings"""
-    import io
-    import urllib.request
-    
-    def test_url(url):
-        try:
-            r = urllib.request.urlopen(url, timeout=10)
-            return r.status
-        except urllib.error.HTTPError as e:
-            return e.code
-        except Exception as e:
-            return str(e)
-    
-    results = []
-    tests = [
-        ("simple.txt", "simple text"),
-        ("simple.pdf", "fake pdf content"),
-        ("folder/test.txt", "folder text"),
-        ("أساسيات/test.pdf", "arabic folder pdf"),
-        ("أساسيات/test.txt", "arabic folder text"),
-        ("debug_test_file.txt", "original test"),
-    ]
-    
-    for pid, content in tests:
-        cloud_result = cloudinary.uploader.upload(
-            io.BytesIO(content.encode()),
-            resource_type="raw",
-            public_id=pid,
-            overwrite=True,
-        )
-        unsigned_url = cloud_result["secure_url"]
-        signed_url, _ = cloudinary.utils.cloudinary_url(
-            cloud_result["public_id"],
-            resource_type=cloud_result.get("resource_type", "raw"),
-            secure=True,
-            sign_url=True,
-        )
-        # Try to get resource info via Admin API
-        try:
-            info = cloudinary.api.resource(cloud_result["public_id"], resource_type=cloud_result.get("resource_type", "raw"))
-            info_rt = info.get("resource_type")
-            info_type = info.get("type")
-        except Exception as e:
-            info_rt = str(e)[:80]
-            info_type = str(e)[:80]
-        
-        results.append({
-            "public_id": cloud_result["public_id"],
-            "resource_type": cloud_result.get("resource_type"),
-            "type": cloud_result.get("type", "upload"),
-            "info_resource_type": info_rt,
-            "info_type": info_type,
-            "unsigned_url": unsigned_url,
-            "signed_url": signed_url,
-            "unsigned_status": test_url(unsigned_url),
-            "signed_status": test_url(signed_url),
-        })
-    
-    return jsonify(results)
+
 
 
 
