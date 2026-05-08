@@ -202,26 +202,10 @@ def api_files():
 
 @app.route("/api/debug_upload")
 def api_debug_upload():
-    """Upload a test file to check Cloudinary settings"""
+    """Upload test files to check Cloudinary settings"""
     import io
-    test_content = b"test file content for debugging"
-    test_file = io.BytesIO(test_content)
-    result = cloudinary.uploader.upload(
-        test_file,
-        resource_type="raw",
-        public_id="debug_test_file.txt",
-        overwrite=True,
-    )
-    # Now try generating signed and unsigned URLs
-    unsigned_url = result["secure_url"]
-    signed_url, _ = cloudinary.utils.cloudinary_url(
-        result["public_id"],
-        resource_type=result.get("resource_type", "raw"),
-        secure=True,
-        sign_url=True,
-    )
-    # Test both
     import urllib.request
+    
     def test_url(url):
         try:
             r = urllib.request.urlopen(url, timeout=10)
@@ -230,15 +214,53 @@ def api_debug_upload():
             return e.code
         except Exception as e:
             return str(e)
-    return jsonify({
-        "public_id": result["public_id"],
-        "resource_type": result.get("resource_type"),
-        "type": result.get("type", "upload"),
-        "unsigned_url": unsigned_url,
-        "signed_url": signed_url,
-        "unsigned_status": test_url(unsigned_url),
-        "signed_status": test_url(signed_url),
-    })
+    
+    results = []
+    tests = [
+        ("simple.txt", "simple text"),
+        ("simple.pdf", "fake pdf content"),
+        ("folder/test.txt", "folder text"),
+        ("أساسيات/test.pdf", "arabic folder pdf"),
+        ("أساسيات/test.txt", "arabic folder text"),
+        ("debug_test_file.txt", "original test"),
+    ]
+    
+    for pid, content in tests:
+        cloud_result = cloudinary.uploader.upload(
+            io.BytesIO(content.encode()),
+            resource_type="raw",
+            public_id=pid,
+            overwrite=True,
+        )
+        unsigned_url = cloud_result["secure_url"]
+        signed_url, _ = cloudinary.utils.cloudinary_url(
+            cloud_result["public_id"],
+            resource_type=cloud_result.get("resource_type", "raw"),
+            secure=True,
+            sign_url=True,
+        )
+        # Try to get resource info via Admin API
+        try:
+            info = cloudinary.api.resource(cloud_result["public_id"], resource_type=cloud_result.get("resource_type", "raw"))
+            info_rt = info.get("resource_type")
+            info_type = info.get("type")
+        except Exception as e:
+            info_rt = str(e)[:80]
+            info_type = str(e)[:80]
+        
+        results.append({
+            "public_id": cloud_result["public_id"],
+            "resource_type": cloud_result.get("resource_type"),
+            "type": cloud_result.get("type", "upload"),
+            "info_resource_type": info_rt,
+            "info_type": info_type,
+            "unsigned_url": unsigned_url,
+            "signed_url": signed_url,
+            "unsigned_status": test_url(unsigned_url),
+            "signed_status": test_url(signed_url),
+        })
+    
+    return jsonify(results)
 
 
 
