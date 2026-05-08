@@ -2,8 +2,6 @@ import os
 import re
 import json
 import threading
-import urllib.request
-from urllib.parse import unquote
 from datetime import datetime
 
 from flask import Flask, render_template, jsonify, request
@@ -86,11 +84,21 @@ def init_db():
 def migrate_old_urls():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, cloudinary_url FROM files WHERE cloudinary_url LIKE '%/s--%'")
+    c.execute("SELECT id, cloudinary_url, cloudinary_public_id, resource_type FROM files")
     rows = c.fetchall()
     for row in rows:
-        unsigned_url = re.sub(r'/s--[^/]+--/', '/', row["cloudinary_url"])
-        c.execute("UPDATE files SET cloudinary_url = %s WHERE id = %s", (unsigned_url, row["id"]))
+        url = row["cloudinary_url"]
+        needs_fix = False
+        if "/s--" in url:
+            needs_fix = True
+            url = re.sub(r'/s--[^/]+--/', '/', url)
+        if "/v1/" in url:
+            fixed = cloudinary.utils.cloudinary_url(row["cloudinary_public_id"], resource_type=row["resource_type"], secure=True, force_version=False)[0]
+            if fixed != url:
+                url = fixed
+                needs_fix = True
+        if needs_fix:
+            c.execute("UPDATE files SET cloudinary_url = %s WHERE id = %s", (url, row["id"]))
     if rows:
         conn.commit()
     conn.close()
@@ -177,43 +185,6 @@ def index():
 def api_files():
     return jsonify(get_files_by_subject())
 
-
-@app.route("/api/migrate")
-def api_migrate():
-    if str(ADMIN_ID) not in (request.args.get("key") or ""):
-        return jsonify({"error": "unauthorized"}), 403
-    old_url = "https://section2-portal-1.onrender.com/api/files"
-    try:
-        resp = urllib.request.urlopen(old_url, timeout=15)
-        data = json.loads(resp.read())
-    except Exception as e:
-        return jsonify({"error": f"fetch failed: {e}"}), 502
-    conn = get_db()
-    c = conn.cursor()
-    count = 0
-    for subject, categories in data.items():
-        for category, files in categories.items():
-            for f in files:
-                url = f["url"]
-                m = re.match(r'https://res\.cloudinary\.com/[^/]+/([^/]+)/upload/v\d+/(.+)', url)
-                if not m:
-                    continue
-                resource_type = m.group(1)
-                public_id = unquote(m.group(2))
-                c.execute(
-                    "SELECT COUNT(*) AS cnt FROM files WHERE cloudinary_public_id = %s",
-                    (public_id,),
-                )
-                if c.fetchone()["cnt"] > 0:
-                    continue
-                c.execute(
-                    "INSERT INTO files (subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type, uploaded_at) VALUES (%s, %s, %s, %s, %s, %s, %s)",
-                    (subject, category, f["original"], url, public_id, resource_type, datetime.now().isoformat()),
-                )
-                count += 1
-    conn.commit()
-    conn.close()
-    return jsonify({"migrated": count})
 
 
 def is_admin(message):
