@@ -1,8 +1,12 @@
 import os
 import re
 import json
+import io
 import threading
 from datetime import datetime
+
+import urllib.request
+import urllib.error
 
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
@@ -144,9 +148,6 @@ def get_files_by_subject():
                 "original": row["original_filename"],
                 "url": url,
                 "download_url": download_url,
-                "_debug_url": row["cloudinary_url"],
-                "_debug_pid": row["cloudinary_public_id"],
-                "_debug_rt": row["resource_type"],
             })
     return result
 
@@ -197,6 +198,47 @@ def index():
 @app.route("/api/files")
 def api_files():
     return jsonify(get_files_by_subject())
+
+
+@app.route("/api/debug_upload")
+def api_debug_upload():
+    """Upload a test file to check Cloudinary settings"""
+    import io
+    test_content = b"test file content for debugging"
+    test_file = io.BytesIO(test_content)
+    result = cloudinary.uploader.upload(
+        test_file,
+        resource_type="raw",
+        public_id="debug_test_file.txt",
+        overwrite=True,
+    )
+    # Now try generating signed and unsigned URLs
+    unsigned_url = result["secure_url"]
+    signed_url, _ = cloudinary.utils.cloudinary_url(
+        result["public_id"],
+        resource_type=result.get("resource_type", "raw"),
+        secure=True,
+        sign_url=True,
+    )
+    # Test both
+    import urllib.request
+    def test_url(url):
+        try:
+            r = urllib.request.urlopen(url, timeout=10)
+            return r.status
+        except urllib.error.HTTPError as e:
+            return e.code
+        except Exception as e:
+            return str(e)
+    return jsonify({
+        "public_id": result["public_id"],
+        "resource_type": result.get("resource_type"),
+        "type": result.get("type", "upload"),
+        "unsigned_url": unsigned_url,
+        "signed_url": signed_url,
+        "unsigned_status": test_url(unsigned_url),
+        "signed_status": test_url(signed_url),
+    })
 
 
 
