@@ -106,12 +106,16 @@ def get_files_by_subject():
         if cat in result[subj]:
             public_id = row["cloudinary_public_id"]
             resource_type = row["resource_type"]
-            url = cloudinary.utils.cloudinary_url(
-                public_id, resource_type=resource_type, sign_url=True
-            )[0]
-            download_url = cloudinary.utils.cloudinary_url(
-                public_id, resource_type=resource_type, attachment=True, sign_url=True
-            )[0]
+            version = None
+            m = re.search(r'/v(\d+)/', row["cloudinary_url"])
+            if m:
+                version = m.group(1)
+            opts = dict(resource_type=resource_type, sign_url=True, secure=True)
+            if version:
+                opts["version"] = version
+            url = cloudinary.utils.cloudinary_url(public_id, **opts)[0]
+            opts["attachment"] = True
+            download_url = cloudinary.utils.cloudinary_url(public_id, **opts)[0]
             result[subj][cat].append({
                 "original": row["original_filename"],
                 "url": url,
