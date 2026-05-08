@@ -128,12 +128,16 @@ def get_files_by_subject():
         if subj not in result:
             result[subj] = {"Cours": [], "TD": [], "TP": [], "Summary": []}
         if cat in result[subj]:
+            version = None
+            m = re.search(r'/v(\d+)/', row["cloudinary_url"])
+            if m:
+                version = m.group(1)
             url, _ = cloudinary.utils.cloudinary_url(
                 row["cloudinary_public_id"],
                 resource_type=row["resource_type"],
                 secure=True,
                 sign_url=True,
-                force_version=False,
+                version=version,
             )
             download_url = url + "?fl_attachment=1"
             result[subj][cat].append({
