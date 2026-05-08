@@ -133,6 +133,7 @@ def get_files_by_subject():
                 resource_type=row["resource_type"],
                 secure=True,
                 sign_url=True,
+                force_version=False,
             )
             download_url = url + "?fl_attachment=1"
             result[subj][cat].append({
