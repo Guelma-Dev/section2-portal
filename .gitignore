@@ -1,0 +1,9 @@
+.env
+database.db
+__pycache__/
+*.pyc
+uploads/
+analyze*.py
+final_test.py
+debug_output.json
+api_output.json

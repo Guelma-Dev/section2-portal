@@ -1,13 +1,16 @@
 import os
 import re
 import json
-import threading
+import logging
 from datetime import datetime
 
 from flask import Flask, render_template, jsonify, request
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
+logger = logging.getLogger(__name__)
 import cloudinary
 import cloudinary.uploader
 import cloudinary.utils
@@ -238,10 +241,6 @@ def api_announcements():
     return jsonify([r["content"] for r in rows])
 
 
-
-
-
-
 def main_menu():
     markup = InlineKeyboardMarkup(row_width=1)
     markup.add(InlineKeyboardButton(text="📁 إضافة ملفات", callback_data="action_add"))
@@ -438,13 +437,19 @@ if bot:
         bot.reply_to(message, f"✅ تم حفظ الملف!\n\nالمادة: {subject}\nالفئة: {category}\nالملف: {original_name}", reply_markup=main_menu())
 
 
-def run_bot():
-    if bot:
-        try:
-            bot.remove_webhook()
-        except:
-            pass
-        bot.infinity_polling(skip_pending=True, interval=0.5, timeout=20)
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    if not bot:
+        return "", 503
+    if request.headers.get("content-type") != "application/json":
+        return "", 403
+    try:
+        json_string = request.get_data().decode("utf-8")
+        update = telebot.types.Update.de_json(json_string)
+        bot.process_new_updates([update])
+    except Exception as e:
+        logger.error(f"Webhook error: {e}")
+    return "", 200
 
 
 if __name__ == "__main__":
@@ -452,11 +457,16 @@ if __name__ == "__main__":
         init_db()
         migrate_old_urls()
     except Exception as e:
-        print(f"ERROR init_db: {e}")
+        logger.error(f"init_db failed: {e}")
         raise
-    if bot and ADMIN_ID:
-        t = threading.Thread(target=run_bot, daemon=True)
-        t.start()
-        print("Bot polling started.")
     port = int(os.getenv("PORT", 5000))
+    if bot and ADMIN_ID:
+        webhook_url = (os.getenv("RENDER_EXTERNAL_URL") or f"http://localhost:{port}").rstrip("/")
+        full = f"{webhook_url}/webhook"
+        try:
+            bot.remove_webhook()
+            bot.set_webhook(url=full)
+            logger.info(f"Webhook set to {full}")
+        except Exception as e:
+            logger.error(f"Webhook setup failed: {e}")
     app.run(debug=False, port=port, host="0.0.0.0")
