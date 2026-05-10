@@ -16,6 +16,7 @@ import cloudinary.uploader
 import cloudinary.utils
 import psycopg2
 from psycopg2.extras import RealDictCursor
+import google.generativeai as genai
 
 load_dotenv()
 
@@ -33,6 +34,16 @@ BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 bot = telebot.TeleBot(BOT_TOKEN) if BOT_TOKEN else None
+
+GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+gemini_model = None
+if GEMINI_KEY:
+    try:
+        genai.configure(api_key=GEMINI_KEY)
+        gemini_model = genai.GenerativeModel("gemini-1.5-flash")
+        logger.info("Gemini model ready")
+    except Exception as e:
+        logger.error(f"Gemini init failed: {e}")
 
 SUBJECTS = [
     "اقتصاد المؤسسة",
@@ -474,9 +485,39 @@ def api_chat():
     if not msg:
         return jsonify({"reply": "اكتب سؤالك 😊"})
     orig = msg
-    msg = msg.lower()
+    msg_lower = msg.lower()
 
-    # subject keywords map
+    # Build portal context for Gemini
+    subj_list = "\n".join([f"- {s}" for s in SUBJECTS])
+    exams_list = "\n".join([f"- {e['subject']}: {e['date']} الساعة {e['time']} ({e['session']})" for e in EXAMS])
+
+    # Try Gemini first
+    if gemini_model:
+        try:
+            prompt = f"""أنت مساعد ذكي لموقع أكاديمي لقسم جامعي. أجب بالعربية فقط وبشكل مختصر ومفيد.
+
+معلومات الموقع:
+المواد الدراسية:
+{subj_list}
+
+جدول الامتحانات:
+{exams_list}
+
+الموقع فيه ملفات Cours, TD, TP, Summary لكل مادة.
+الطالب يقدر يبحث عن المواد، يفتح الملفات، يحملها، وينسخ الروابط.
+فيه شريط إعلانات متحرك، وضع مظلم، وألوان مخصصة.
+
+سؤال الطالب: {orig}
+
+أجب بشكل طبيعي ومختصر (جملتين لأربع جمل). إذا سأل عن شرح أو تلخيص، قدم شرح مختصر مفيد. إذا سأل عن ملفات، قل له يفتح المادة من الصفحة الرئيسية."""
+            response = gemini_model.generate_content(prompt)
+            reply = response.text.strip()
+            if reply:
+                return jsonify({"reply": reply})
+        except Exception as e:
+            logger.error(f"Gemini error: {e}")
+
+    # ── Fallback: rule-based ──
     subj_map = {
         "اقتصاد المؤسسة": ["اقتصاد المؤسسة", "مؤسسة", "اقتصاد مؤسسة"],
         "اقتصاد جزئي": ["اقتصاد جزئي", "جزئي", "اقتصاد الجزئي"],
@@ -493,35 +534,31 @@ def api_chat():
 
     found_subject = None
     for full_name, keywords in subj_map.items():
-        if any(k in msg for k in keywords):
+        if any(k in msg_lower for k in keywords):
             found_subject = full_name
             break
 
     found_cat = None
     for kw, cat in cat_map.items():
-        if kw in msg:
+        if kw in msg_lower:
             found_cat = cat
             break
 
-    # Greetings
-    if any(w in msg for w in ["مرحبا", "السلام", "اهلا", "أهلا", "صباح الخير", "مساء الخير", "hi", "hello"]):
+    if any(w in msg_lower for w in ["مرحبا", "السلام", "اهلا", "أهلا", "صباح الخير", "مساء الخير", "hi", "hello"]):
         return jsonify({"reply": "مرحباً بك في بورتال القسم! 😊\n\nأسئلة أقدر أساعدك فيها:\n• أين ملفات مادة معينة؟\n• متى امتحان مادة؟\n• كيف أستخدم الموقع؟\n\nاكتب سؤالك 👇"})
 
-    if any(w in msg for w in ["شكرا", "شكراً", "تسلم", "thanks"]):
+    if any(w in msg_lower for w in ["شكرا", "شكراً", "تسلم", "thanks"]):
         return jsonify({"reply": "العفو! دائمًا في الخدمة 🤍"})
 
-    # Exams
-    if any(w in msg for w in ["امتحان", "جدول", "موعد", "متى"]) or found_subject and any(w in msg for w in ["امتحان", "متى"]):
+    if any(w in msg_lower for w in ["امتحان", "جدول", "موعد", "متى"]):
         if found_subject:
             for e in EXAMS:
                 if e["subject"] == found_subject or found_subject in e["subject"]:
                     d = datetime.strptime(e["date"], "%Y-%m-%d")
                     return jsonify({"reply": f"📅 امتحان {e['subject']}:\n📆 {days_ar[d.weekday()]} {d.day} {'يناير فبراير مارس أبريل ماي يونيو يوليو أغسطس سبتمبر أكتوبر نوفمبر ديسمبر'.split()[d.month-1]} {d.year}\n⏰ {e['time']}\n🌅 {e['session']}"})
-            return jsonify({"reply": f"ما لقيت موعد امتحان لـ {found_subject} ❓"})
         exams_txt = "\n\n".join([f"📅 {e['subject']}: {e['date']} الساعة {e['time']} ({e['session']})" for e in EXAMS])
         return jsonify({"reply": f"📋 جدول الامتحانات النهائية:\n\n{exams_txt}"})
 
-    # Files
     if found_subject:
         files_data = get_files_by_subject()
         subj_files = files_data.get(found_subject)
@@ -540,18 +577,16 @@ def api_chat():
                 reply = f"📚 ملفات {found_subject}:\n" + "\n".join(available)
                 reply += "\n\n📌 افتح المادة من الصفحة الرئيسية عشان تشوف الكل"
                 return jsonify({"reply": reply})
-            else:
-                return jsonify({"reply": f"ما في ملفات لـ {found_subject} في قسم ( {found_cat} ) ❓"})
 
-    # Files without subject: list subjects
-    if any(w in msg for w in ["الملفات", "المواد"]):
+    if any(w in msg_lower for w in ["الملفات", "المواد"]):
         subjects_list = "\n".join([f"  {i+1}. {s}" for i, s in enumerate(SUBJECTS)])
         return jsonify({"reply": f"📁 المواد الدراسية المتوفرة:\n{subjects_list}\n\nاكتب اسم المادة عشان تشوف ملفاتها"})
 
-    # Help
-    if any(w in msg for w in ["كيف", "وين", "أين", "استخدام", "ايش", "وش", "شنو", "ماذا", "help"]):
+    if any(w in msg_lower for w in ["كيف", "وين", "أين", "استخدام", "ايش", "وش", "شنو", "ماذا", "help"]):
         return jsonify({"reply": "🤖 كيف أستخدم البورتال:\n\n1. ابحث عن مادة (🔍)\n2. اضغط على المادة عشان تشوف ملفاتها\n3. في المودال تقدر تشوف، تحمل، أو تنسخ رابط الملف\n4. استخدم زر الألوان 🎨 عشان تغير شكل الموقع\n5. زر 🌙 عشان تظلم/تضيء الموقع"})
 
+    if gemini_model:
+        return jsonify({"reply": "💡 اسألني عن المواد، الامتحانات، أو اطلب مني أشرح لك أي شيء!"})
     return jsonify({"reply": "🤔 ما فهمت سؤالك. جرب:\n\n• 'وين ملفات الرياضيات؟'\n• 'متى امتحان القانون؟'\n• 'شو المواد الموجودة؟'\n• 'كيف أستخدم الموقع؟'"})
 
 
