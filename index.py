@@ -37,27 +37,6 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 bot = telebot.TeleBot(BOT_TOKEN) if BOT_TOKEN else None
 
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-gemini_ok = False
-gemini_error = "not configured"
-if GEMINI_KEY:
-    try:
-        data = json.dumps({"contents":[{"parts":[{"text":"قل مرحبا"}]}]}).encode()
-        req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}", data=data, headers={"Content-Type":"application/json"}, method="POST")
-        resp = urllib.request.urlopen(req, timeout=15)
-        result = json.loads(resp.read())
-        if result.get("candidates"):
-            gemini_ok = True
-            logger.info("Gemini HTTP ready")
-        else:
-            gemini_error = json.dumps(result)[:200]
-            logger.warning(f"Gemini no candidates: {gemini_error}")
-    except urllib.error.HTTPError as e:
-        body = e.read().decode()
-        gemini_error = f"HTTP {e.code}: {body[:200]}"
-        logger.error(f"Gemini HTTP error: {gemini_error}")
-    except Exception as e:
-        gemini_error = str(e)[:200]
-        logger.error(f"Gemini init failed: {gemini_error}")
 
 SUBJECTS = [
     "اقتصاد المؤسسة",
@@ -505,8 +484,8 @@ def api_chat():
     subj_list = "\n".join([f"- {s}" for s in SUBJECTS])
     exams_list = "\n".join([f"- {e['subject']}: {e['date']} الساعة {e['time']} ({e['session']})" for e in EXAMS])
 
-    # Try Gemini first
-    if gemini_ok:
+    # Try Gemini on-demand
+    if GEMINI_KEY:
         try:
             prompt = f"""أنت مساعد ذكي لموقع أكاديمي لقسم جامعي. أجب بالعربية فقط وبشكل مختصر ومفيد.
 
@@ -524,17 +503,27 @@ def api_chat():
 سؤال الطالب: {orig}
 
 أجب بشكل طبيعي ومختصر (جملتين لأربع جمل). إذا سأل عن شرح أو تلخيص، قدم شرح مختصر مفيد. إذا سأل عن ملفات، قل له يفتح المادة من الصفحة الرئيسية."""
-            data = json.dumps({"contents":[{"parts":[{"text":prompt}]}],"generationConfig":{"maxOutputTokens":300,"temperature":0.7}}).encode()
-            req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}", data=data, headers={"Content-Type":"application/json"}, method="POST")
-            resp = urllib.request.urlopen(req, timeout=15)
-            result = json.loads(resp.read())
-            candidates = result.get("candidates", [])
-            if candidates:
-                text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
-                if text:
-                    logger.info(f"Gemini OK: {text[:60]}...")
-                    return jsonify({"reply": text})
-            logger.warning(f"Gemini empty: {json.dumps(result)[:200]}")
+            models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash"]
+            reply = None
+            for model in models_to_try:
+                try:
+                    data = json.dumps({"contents":[{"parts":[{"text":prompt}]}],"generationConfig":{"maxOutputTokens":400,"temperature":0.7}}).encode()
+                    req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={GEMINI_KEY}", data=data, headers={"Content-Type":"application/json"}, method="POST")
+                    resp = urllib.request.urlopen(req, timeout=15)
+                    result = json.loads(resp.read())
+                    candidates = result.get("candidates", [])
+                    if candidates:
+                        text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                        if text:
+                            reply = text
+                            break
+                except urllib.error.HTTPError as e2:
+                    if e2.code != 429:
+                        break
+                    logger.warning(f"{model} quota exceeded, trying next")
+            if reply:
+                logger.info(f"Gemini OK: {reply[:60]}...")
+                return jsonify({"reply": reply})
         except Exception as e:
             logger.error(f"Gemini error: {e}")
 
@@ -606,7 +595,7 @@ def api_chat():
     if any(w in msg_lower for w in ["كيف", "وين", "أين", "استخدام", "ايش", "وش", "شنو", "ماذا", "help"]):
         return jsonify({"reply": "🤖 كيف أستخدم البورتال:\n\n1. ابحث عن مادة (🔍)\n2. اضغط على المادة عشان تشوف ملفاتها\n3. في المودال تقدر تشوف، تحمل، أو تنسخ رابط الملف\n4. استخدم زر الألوان 🎨 عشان تغير شكل الموقع\n5. زر 🌙 عشان تظلم/تضيء الموقع"})
 
-    if gemini_ok:
+    if GEMINI_KEY:
         return jsonify({"reply": "💡 اسألني عن المواد، الامتحانات، أو اطلب مني أشرح لك أي شيء!"})
     return jsonify({"reply": "🤔 ما فهمت سؤالك. جرب:\n\n• 'وين ملفات الرياضيات؟'\n• 'متى امتحان القانون؟'\n• 'شو المواد الموجودة؟'\n• 'كيف أستخدم الموقع؟'"})
 
@@ -629,7 +618,7 @@ def webhook():
 @app.route("/api/gemini-status")
 def gemini_status():
     key_preview = GEMINI_KEY[:15] + "..." if GEMINI_KEY else None
-    return jsonify({"ok": gemini_ok, "key_set": bool(GEMINI_KEY), "key_preview": key_preview, "error": gemini_error})
+    return jsonify({"key_set": bool(GEMINI_KEY), "key_preview": key_preview})
 
 
 @app.route("/api/download/<int:file_id>", methods=["POST"])
