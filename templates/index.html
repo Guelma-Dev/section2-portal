@@ -51,6 +51,14 @@
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 font-sans antialiased transition-colors duration-200">
 
+  <!-- Splash Screen -->
+  <div id="splash" class="fixed inset-0 z-50 flex flex-col items-center justify-center" style="background:linear-gradient(135deg,var(--c600),var(--c700),var(--c900))">
+    <div class="text-5xl md:text-7xl mb-4 animate-bounce">📚</div>
+    <h1 class="text-white text-xl md:text-2xl font-bold">Section 2 - Groupe 12</h1>
+    <p class="text-white text-opacity-70 text-sm mt-1">الموارد الأكاديمية والملفات الدراسية</p>
+    <div class="mt-6 w-10 h-10 border-4 border-white border-t-transparent rounded-full animate-spin"></div>
+  </div>
+
   <!-- Announcement Bar -->
   <div id="announcement-bar" class="hidden bg-gradient-to-r from-red-600 via-rose-500 to-orange-500 text-white text-sm py-2.5 overflow-hidden shadow-lg border-b-2 border-yellow-300 transition-colors duration-300">
     <div class="ticker-wrap">
@@ -311,6 +319,23 @@
       if (!h) c.innerHTML = '<div class="text-center py-10 text-gray-400 dark:text-gray-500">لا توجد ملفات مرفوعة بعد لهذه المادة.</div>';
       l.classList.add('hidden'); c.classList.remove('hidden');
     }
+
+    /* ── Scroll to Top ── */
+    const scrollBtn = document.createElement('button');
+    scrollBtn.id = 'scroll-top';
+    scrollBtn.className = 'fixed bottom-6 right-6 z-30 w-11 h-11 rounded-full shadow-lg flex items-center justify-center text-white text-lg opacity-0 translate-y-4 transition-all duration-300 pointer-events-none';
+    scrollBtn.style.background = 'var(--c600)';
+    scrollBtn.innerHTML = '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>';
+    scrollBtn.title = 'العودة للأعلى';
+    scrollBtn.onclick = () => window.scrollTo({ top: 0, behavior: 'smooth' });
+    document.body.appendChild(scrollBtn);
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 400) { scrollBtn.classList.remove('opacity-0','translate-y-4','pointer-events-none'); scrollBtn.classList.add('opacity-100','translate-y-0','pointer-events-auto'); }
+      else { scrollBtn.classList.remove('opacity-100','translate-y-0','pointer-events-auto'); scrollBtn.classList.add('opacity-0','translate-y-4','pointer-events-none'); }
+    });
+
+    /* ── Splash Hide ── */
+    setTimeout(() => { const s = document.getElementById('splash'); if (s) { s.style.transition = 'opacity 0.5s ease'; s.style.opacity = '0'; setTimeout(() => s.remove(), 500); } }, 800);
 
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
     renderExams('all');
