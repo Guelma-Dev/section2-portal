@@ -16,7 +16,8 @@ import cloudinary.uploader
 import cloudinary.utils
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import google.generativeai as genai
+import urllib.request
+import urllib.error
 
 load_dotenv()
 
@@ -36,21 +37,18 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 bot = telebot.TeleBot(BOT_TOKEN) if BOT_TOKEN else None
 
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
-gemini_model = None
+gemini_ok = False
 if GEMINI_KEY:
-    for model_name in ["gemini-2.0-flash", "gemini-1.5-flash", "models/gemini-1.5-flash", "models/gemini-2.0-flash"]:
-        try:
-            genai.configure(api_key=GEMINI_KEY)
-            gemini_model = genai.GenerativeModel(model_name)
-            test = gemini_model.generate_content("قل مرحبا", generation_config={"max_output_tokens":10})
-            if test and test.text:
-                logger.info(f"Gemini ready with model: {model_name}")
-                break
-        except Exception as e:
-            logger.warning(f"Gemini model {model_name} failed: {e}")
-            gemini_model = None
-    if not gemini_model:
-        logger.error("All Gemini models failed")
+    try:
+        data = json.dumps({"contents":[{"parts":[{"text":"مرحبا"}]}]}).encode()
+        req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}", data=data, headers={"Content-Type":"application/json"}, method="POST")
+        resp = urllib.request.urlopen(req, timeout=10)
+        result = json.loads(resp.read())
+        if result.get("candidates"):
+            gemini_ok = True
+            logger.info("Gemini HTTP ready")
+    except Exception as e:
+        logger.error(f"Gemini HTTP init failed: {e}")
 
 SUBJECTS = [
     "اقتصاد المؤسسة",
@@ -499,7 +497,7 @@ def api_chat():
     exams_list = "\n".join([f"- {e['subject']}: {e['date']} الساعة {e['time']} ({e['session']})" for e in EXAMS])
 
     # Try Gemini first
-    if gemini_model:
+    if gemini_ok:
         try:
             prompt = f"""أنت مساعد ذكي لموقع أكاديمي لقسم جامعي. أجب بالعربية فقط وبشكل مختصر ومفيد.
 
@@ -517,11 +515,17 @@ def api_chat():
 سؤال الطالب: {orig}
 
 أجب بشكل طبيعي ومختصر (جملتين لأربع جمل). إذا سأل عن شرح أو تلخيص، قدم شرح مختصر مفيد. إذا سأل عن ملفات، قل له يفتح المادة من الصفحة الرئيسية."""
-            response = gemini_model.generate_content(prompt, generation_config={"max_output_tokens": 300, "temperature": 0.7})
-            logger.info(f"Gemini response received: {response.text[:100] if response.text else 'EMPTY'}...")
-            if response and response.text and response.text.strip():
-                return jsonify({"reply": response.text.strip()})
-            logger.warning("Gemini returned empty response")
+            data = json.dumps({"contents":[{"parts":[{"text":prompt}]}],"generationConfig":{"maxOutputTokens":300,"temperature":0.7}}).encode()
+            req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}", data=data, headers={"Content-Type":"application/json"}, method="POST")
+            resp = urllib.request.urlopen(req, timeout=15)
+            result = json.loads(resp.read())
+            candidates = result.get("candidates", [])
+            if candidates:
+                text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                if text:
+                    logger.info(f"Gemini OK: {text[:60]}...")
+                    return jsonify({"reply": text})
+            logger.warning(f"Gemini empty: {json.dumps(result)[:200]}")
         except Exception as e:
             logger.error(f"Gemini error: {e}")
 
@@ -593,7 +597,7 @@ def api_chat():
     if any(w in msg_lower for w in ["كيف", "وين", "أين", "استخدام", "ايش", "وش", "شنو", "ماذا", "help"]):
         return jsonify({"reply": "🤖 كيف أستخدم البورتال:\n\n1. ابحث عن مادة (🔍)\n2. اضغط على المادة عشان تشوف ملفاتها\n3. في المودال تقدر تشوف، تحمل، أو تنسخ رابط الملف\n4. استخدم زر الألوان 🎨 عشان تغير شكل الموقع\n5. زر 🌙 عشان تظلم/تضيء الموقع"})
 
-    if gemini_model:
+    if gemini_ok:
         return jsonify({"reply": "💡 اسألني عن المواد، الامتحانات، أو اطلب مني أشرح لك أي شيء!"})
     return jsonify({"reply": "🤔 ما فهمت سؤالك. جرب:\n\n• 'وين ملفات الرياضيات؟'\n• 'متى امتحان القانون؟'\n• 'شو المواد الموجودة؟'\n• 'كيف أستخدم الموقع؟'"})
 
@@ -615,7 +619,7 @@ def webhook():
 
 @app.route("/api/gemini-status")
 def gemini_status():
-    return jsonify({"ok": gemini_model is not None, "key_set": bool(GEMINI_KEY)})
+    return jsonify({"ok": gemini_ok, "key_set": bool(GEMINI_KEY)})
 
 
 @app.route("/api/download/<int:file_id>", methods=["POST"])
