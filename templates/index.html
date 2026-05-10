@@ -20,6 +20,7 @@
   <style>
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes countPop { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+    @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
     .fade-in { animation: fadeInUp 0.5s ease both; }
     .countdown-update { animation: countPop 0.3s ease; }
     body { -webkit-tap-highlight-color: transparent; }
@@ -29,13 +30,19 @@
     .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 99px; }
     .dark .scrollbar-thin::-webkit-scrollbar-thumb { background: #475569; }
     #file-list a { word-break: break-all; }
-    #modal-body { -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y; }
+    .ticker-wrap { overflow: hidden; white-space: nowrap; width: 100%; }
+    .ticker-text { display: inline-flex; animation: ticker 30s linear infinite; }
+    .ticker-text.paused { animation-play-state: paused; }
   </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 font-sans antialiased transition-colors duration-200">
 
   <!-- Announcement Bar -->
-  <div id="announcement-bar" class="hidden bg-gradient-to-r from-amber-500 to-orange-500 text-white text-center text-sm py-2 px-4"></div>
+  <div id="announcement-bar" class="hidden bg-gradient-to-r from-red-600 via-rose-500 to-orange-500 text-white text-sm py-2.5 overflow-hidden shadow-lg border-b-2 border-yellow-300">
+    <div class="ticker-wrap">
+      <div id="ticker-text" class="ticker-text font-medium"></div>
+    </div>
+  </div>
 
   <!-- Header -->
   <header class="bg-gradient-to-r from-primary-600 via-primary-700 to-indigo-900 dark:from-primary-800 dark:via-primary-900 dark:to-gray-900 text-white shadow-lg">
@@ -91,15 +98,15 @@
 
   <!-- Modal -->
   <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 z-40 hidden" onclick="closeModal()"></div>
-  <div id="modal" class="fixed inset-x-0 bottom-0 z-50 transform translate-y-full transition-transform duration-300 md:inset-y-0 md:right-0 md:left-auto md:w-3/4 lg:w-2/3 xl:w-1/2 md:translate-y-0 md:translate-x-full md:transition-transform md:duration-300 bg-white dark:bg-gray-800 rounded-t-2xl md:rounded-l-2xl shadow-2xl overflow-hidden" style="max-height:100dvh;">
-    <div class="flex flex-col h-full">
+  <div id="modal" class="fixed inset-x-0 bottom-0 z-50 transform translate-y-full transition-transform duration-300 md:inset-y-0 md:right-0 md:left-auto md:w-3/4 lg:w-2/3 xl:w-1/2 md:translate-y-0 md:translate-x-full md:transition-transform md:duration-300 bg-white dark:bg-gray-800 shadow-2xl" style="max-height:100dvh;">
+    <div class="flex flex-col h-full overflow-hidden rounded-t-2xl md:rounded-l-2xl">
       <div class="flex items-center justify-between bg-primary-700 dark:bg-primary-900 text-white px-5 py-4 shrink-0">
         <h2 id="modal-title" class="text-lg font-semibold truncate"></h2>
         <button onclick="closeModal()" class="text-white hover:text-primary-200 p-1">
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
         </button>
       </div>
-      <div id="modal-body" class="flex-1 overflow-y-auto overscroll-contain p-4 md:p-5 scrollbar-thin min-h-0">
+      <div id="modal-body" class="flex-1 overflow-y-auto p-4 md:p-5 scrollbar-thin min-h-0 overscroll-contain">
         <div id="modal-loading" class="text-center py-10 text-gray-400 dark:text-gray-500">جاري تحميل الملفات...</div>
         <div id="modal-content" class="hidden space-y-4"></div>
       </div>
@@ -138,9 +145,10 @@
     /* ── Announcements ── */
     fetch('/api/announcements').then(r => r.json()).then(msgs => {
       if (msgs.length) {
-        const bar = document.getElementById('announcement-bar');
-        bar.classList.remove('hidden');
-        bar.innerHTML = msgs.map(m => '<span class="mx-3">📢 ' + m + '</span>').join(' | ');
+        document.getElementById('announcement-bar').classList.remove('hidden');
+        const txt = document.getElementById('ticker-text');
+        txt.textContent = msgs.map(m => '📢 ' + m).join('  ◆  ');
+        txt.textContent += '  ◆  ' + txt.textContent;
       }
     });
 
