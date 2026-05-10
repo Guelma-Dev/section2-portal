@@ -36,7 +36,7 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 
 bot = telebot.TeleBot(BOT_TOKEN) if BOT_TOKEN else None
 
-GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+GROQ_KEY = os.getenv("GROQ_API_KEY")
 
 SUBJECTS = [
     "اقتصاد المؤسسة",
@@ -484,12 +484,13 @@ def api_chat():
     subj_list = "\n".join([f"- {s}" for s in SUBJECTS])
     exams_list = "\n".join([f"- {e['subject']}: {e['date']} الساعة {e['time']} ({e['session']})" for e in EXAMS])
 
-    # Try Gemini on-demand
-    if GEMINI_KEY:
+    # Try Groq on-demand
+    GROQ_MODEL = "llama-3.1-8b-instant"
+    if GROQ_KEY:
         prompt = f"""أنت مساعد ذكي لموقع أكاديمي لقسم جامعي. أجب بالعربية فقط وبشكل مختصر ومفيد.
 
 معلومات الموقع:
-المواد الدراسية:
+المواد المتاحة:
 {subj_list}
 
 جدول الامتحانات:
@@ -500,33 +501,35 @@ def api_chat():
 سؤال الطالب: {orig}
 
 أجب بشكل طبيعي ومختصر (جملتين لأربع جمل). إذا سأل عن شرح أو تلخيص، قدم شرح مختصر مفيد."""
-        endpoints = ["v1", "v1beta"]
-        models = ["gemini-2.0-flash", "gemini-1.5-flash"]
-        reply = None
-        for ep in endpoints:
-            for model in models:
-                try:
-                    data = json.dumps({"contents":[{"parts":[{"text":prompt}]}],"generationConfig":{"maxOutputTokens":400,"temperature":0.7}}).encode()
-                    url = f"https://generativelanguage.googleapis.com/{ep}/models/{model}:generateContent?key={GEMINI_KEY}"
-                    req = urllib.request.Request(url, data=data, headers={"Content-Type":"application/json"}, method="POST")
-                    resp = urllib.request.urlopen(req, timeout=15)
-                    result = json.loads(resp.read())
-                    candidates = result.get("candidates", [])
-                    if candidates:
-                        text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
-                        if text:
-                            logger.info(f"Gemini ({model}) OK: {text[:60]}...")
-                            return jsonify({"reply": text})
-                        else:
-                            logger.warning(f"Gemini ({model}) empty text")
-                    else:
-                        reason = result.get("promptFeedback", {}).get("blockReason", "unknown")
-                        logger.warning(f"Gemini ({model}) no candidates, blockReason={reason}")
-                except urllib.error.HTTPError as e2:
-                    body = e2.read().decode()[:200]
-                    logger.warning(f"Gemini ({model}) HTTP {e2.code}: {body}")
-                except Exception as e2:
-                    logger.warning(f"Gemini ({model}) error: {str(e2)[:200]}")
+        try:
+            body = json.dumps({
+                "model": GROQ_MODEL,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 400,
+                "temperature": 0.7
+            }).encode()
+            req = urllib.request.Request(
+                "https://api.groq.com/openai/v1/chat/completions",
+                data=body,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {GROQ_KEY}"
+                },
+                method="POST"
+            )
+            resp = urllib.request.urlopen(req, timeout=15)
+            result = json.loads(resp.read())
+            text = result["choices"][0]["message"]["content"].strip()
+            if text:
+                logger.info(f"Groq OK: {text[:60]}...")
+                return jsonify({"reply": text})
+            else:
+                logger.warning("Groq returned empty text")
+        except urllib.error.HTTPError as e2:
+            body_err = e2.read().decode()[:300]
+            logger.warning(f"Groq HTTP {e2.code}: {body_err}")
+        except Exception as e2:
+            logger.warning(f"Groq error: {str(e2)[:200]}")
 
     # ── Fallback: rule-based ──
     subj_map = {
@@ -596,7 +599,7 @@ def api_chat():
     if any(w in msg_lower for w in ["كيف", "وين", "أين", "استخدام", "ايش", "وش", "شنو", "ماذا", "help"]):
         return jsonify({"reply": "🤖 كيف أستخدم البورتال:\n\n1. ابحث عن مادة (🔍)\n2. اضغط على المادة عشان تشوف ملفاتها\n3. في المودال تقدر تشوف، تحمل، أو تنسخ رابط الملف\n4. استخدم زر الألوان 🎨 عشان تغير شكل الموقع\n5. زر 🌙 عشان تظلم/تضيء الموقع"})
 
-    if GEMINI_KEY:
+    if GROQ_KEY:
         return jsonify({"reply": "💡 اسألني عن المواد، الامتحانات، أو اطلب مني أشرح لك أي شيء!"})
     return jsonify({"reply": "🤔 ما فهمت سؤالك. جرب:\n\n• 'وين ملفات الرياضيات؟'\n• 'متى امتحان القانون؟'\n• 'شو المواد الموجودة؟'\n• 'كيف أستخدم الموقع؟'"})
 
@@ -616,10 +619,10 @@ def webhook():
     return "", 200
 
 
-@app.route("/api/gemini-status")
-def gemini_status():
-    key_preview = GEMINI_KEY[:15] + "..." if GEMINI_KEY else None
-    return jsonify({"key_set": bool(GEMINI_KEY), "key_preview": key_preview})
+@app.route("/api/ai-status")
+def ai_status():
+    key_preview = GROQ_KEY[:15] + "..." if GROQ_KEY else None
+    return jsonify({"key_set": bool(GROQ_KEY), "key_preview": key_preview, "provider": "groq", "model": "llama-3.1-8b-instant"})
 
 
 @app.route("/api/download/<int:file_id>", methods=["POST"])
