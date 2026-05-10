@@ -184,6 +184,40 @@ def sanitize_filename(name):
     return name
 
 
+def get_files_by_subject_and_subject(subject):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, original_filename, category FROM files WHERE subject = %s ORDER BY uploaded_at DESC", (subject,))
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+
+def add_announcement(content):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("INSERT INTO announcements (content, enabled, created_at) VALUES (%s, TRUE, %s)", (content, datetime.now().isoformat()))
+    conn.commit()
+    conn.close()
+
+
+def delete_announcement(aid):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("DELETE FROM announcements WHERE id = %s", (aid,))
+    conn.commit()
+    conn.close()
+
+
+def get_announcements():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, content FROM announcements WHERE enabled = TRUE ORDER BY id DESC")
+    rows = c.fetchall()
+    conn.close()
+    return rows
+
+
 @app.route("/")
 def index():
     return render_template("index.html", subjects=SUBJECTS, exams=EXAMS)
