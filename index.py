@@ -536,6 +536,7 @@ def api_chat():
                 logger.warning(last_err)
         if last_err:
             logger.warning(f"All Groq models failed: {last_err}")
+            return jsonify({"reply": f"⚠️ Groq API مشكلة: {last_err}"})
 
     # ── Fallback: rule-based ──
     subj_map = {
