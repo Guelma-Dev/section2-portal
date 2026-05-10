@@ -38,12 +38,19 @@ bot = telebot.TeleBot(BOT_TOKEN) if BOT_TOKEN else None
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 gemini_model = None
 if GEMINI_KEY:
-    try:
-        genai.configure(api_key=GEMINI_KEY)
-        gemini_model = genai.GenerativeModel("gemini-1.5-flash")
-        logger.info("Gemini model ready")
-    except Exception as e:
-        logger.error(f"Gemini init failed: {e}")
+    for model_name in ["gemini-2.0-flash", "gemini-1.5-flash", "models/gemini-1.5-flash", "models/gemini-2.0-flash"]:
+        try:
+            genai.configure(api_key=GEMINI_KEY)
+            gemini_model = genai.GenerativeModel(model_name)
+            test = gemini_model.generate_content("قل مرحبا", generation_config={"max_output_tokens":10})
+            if test and test.text:
+                logger.info(f"Gemini ready with model: {model_name}")
+                break
+        except Exception as e:
+            logger.warning(f"Gemini model {model_name} failed: {e}")
+            gemini_model = None
+    if not gemini_model:
+        logger.error("All Gemini models failed")
 
 SUBJECTS = [
     "اقتصاد المؤسسة",
@@ -510,10 +517,11 @@ def api_chat():
 سؤال الطالب: {orig}
 
 أجب بشكل طبيعي ومختصر (جملتين لأربع جمل). إذا سأل عن شرح أو تلخيص، قدم شرح مختصر مفيد. إذا سأل عن ملفات، قل له يفتح المادة من الصفحة الرئيسية."""
-            response = gemini_model.generate_content(prompt)
-            reply = response.text.strip()
-            if reply:
-                return jsonify({"reply": reply})
+            response = gemini_model.generate_content(prompt, generation_config={"max_output_tokens": 300, "temperature": 0.7})
+            logger.info(f"Gemini response received: {response.text[:100] if response.text else 'EMPTY'}...")
+            if response and response.text and response.text.strip():
+                return jsonify({"reply": response.text.strip()})
+            logger.warning("Gemini returned empty response")
         except Exception as e:
             logger.error(f"Gemini error: {e}")
 
@@ -603,6 +611,11 @@ def webhook():
     except Exception as e:
         logger.error(f"Webhook error: {e}")
     return "", 200
+
+
+@app.route("/api/gemini-status")
+def gemini_status():
+    return jsonify({"ok": gemini_model is not None, "key_set": bool(GEMINI_KEY)})
 
 
 @app.route("/api/download/<int:file_id>", methods=["POST"])
