@@ -500,7 +500,7 @@ def api_chat():
 سؤال الطالب: {orig}
 
 أجب بشكل طبيعي ومختصر (جملتين لأربع جمل). إذا سأل عن شرح أو تلخيص، قدم شرح مختصر مفيد."""
-        models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash"]
+        models_to_try = ["gemini-2.0-flash", "models/gemini-2.0-flash", "gemini-1.5-flash", "models/gemini-1.5-flash"]
         for model in models_to_try:
             try:
                 data = json.dumps({"contents":[{"parts":[{"text":prompt}]}],"generationConfig":{"maxOutputTokens":400,"temperature":0.7}}).encode()
