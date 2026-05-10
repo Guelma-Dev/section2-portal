@@ -64,7 +64,10 @@
           <p class="text-xs md:text-sm mt-0.5" style="color:var(--c200)">الموارد الأكاديمية والملفات الدراسية</p>
         </div>
         <div class="flex items-center gap-1.5">
-          <div id="color-picker" class="flex items-center gap-0.5 bg-white bg-opacity-20 rounded-full px-1.5 py-0.5"></div>
+          <div class="relative">
+            <button id="color-toggle" class="w-9 h-9 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 flex items-center justify-center text-lg transition" title="ألوان الموقع">🎨</button>
+            <div id="color-popup" class="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-xl p-2 hidden z-50" style="min-width:140px"><div id="color-picker" class="grid grid-cols-4 gap-1.5"></div></div>
+          </div>
           <button id="dark-toggle" class="w-9 h-9 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 flex items-center justify-center text-lg transition" title="الوضع المظلم">🌙</button>
         </div>
       </div>
@@ -162,6 +165,7 @@
     const savedTheme = localStorage.getItem('theme') || 'indigo';
     document.documentElement.setAttribute('data-theme', savedTheme);
     const picker = document.getElementById('color-picker');
+    const popup = document.getElementById('color-popup');
     THEMES.forEach(t => {
       const btn = document.createElement('button');
       btn.className = 'theme-btn' + (t.id === savedTheme ? ' active' : '');
@@ -172,9 +176,12 @@
         localStorage.setItem('theme', t.id);
         picker.querySelectorAll('.theme-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+        popup.classList.add('hidden');
       };
       picker.appendChild(btn);
     });
+    document.getElementById('color-toggle').onclick = (e) => { e.stopPropagation(); popup.classList.toggle('hidden'); };
+    document.addEventListener('click', (e) => { if (!popup.classList.contains('hidden') && !popup.contains(e.target) && e.target.id !== 'color-toggle') popup.classList.add('hidden'); });
 
     /* ── Tabs ── */
     function switchTab(tab) {
