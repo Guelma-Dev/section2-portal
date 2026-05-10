@@ -88,6 +88,10 @@ def init_db():
             created_at TEXT NOT NULL
         )
     """)
+    try:
+        c.execute("ALTER TABLE files ADD COLUMN IF NOT EXISTS downloads INTEGER DEFAULT 0")
+    except:
+        pass
     conn.commit()
     conn.close()
 
@@ -129,7 +133,7 @@ def save_file_record(subject, category, original_name, cloudinary_url, cloudinar
 def get_files_by_subject():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type FROM files ORDER BY uploaded_at DESC")
+    c.execute("SELECT id, subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type, downloads FROM files ORDER BY uploaded_at DESC")
     rows = c.fetchall()
     conn.close()
     result = {}
@@ -142,9 +146,11 @@ def get_files_by_subject():
             url = row["cloudinary_url"]
             download_url = url + "?fl_attachment=1"
             result[subj][cat].append({
+                "id": row["id"],
                 "original": row["original_filename"],
                 "url": url,
                 "download_url": download_url,
+                "downloads": row["downloads"] or 0,
             })
     return result
 
@@ -239,6 +245,26 @@ def api_announcements():
     rows = c.fetchall()
     conn.close()
     return jsonify([r["content"] for r in rows])
+
+
+@app.route("/api/files/popular")
+def api_popular():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, subject, category, original_filename, cloudinary_url, downloads, uploaded_at FROM files ORDER BY downloads DESC, uploaded_at DESC LIMIT 20")
+    rows = c.fetchall()
+    conn.close()
+    return jsonify([{"id":r["id"],"subject":r["subject"],"category":r["category"],"name":r["original_filename"],"url":r["cloudinary_url"],"downloads":r["downloads"] or 0,"time":r["uploaded_at"]} for r in rows])
+
+
+@app.route("/api/recent")
+def api_recent():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT id, subject, category, original_filename, cloudinary_url, uploaded_at FROM files ORDER BY uploaded_at DESC LIMIT 10")
+    rows = c.fetchall()
+    conn.close()
+    return jsonify([{"id":r["id"],"subject":r["subject"],"category":r["category"],"name":r["original_filename"],"url":r["cloudinary_url"],"time":r["uploaded_at"]} for r in rows])
 
 
 def main_menu():
@@ -450,6 +476,17 @@ def webhook():
     except Exception as e:
         logger.error(f"Webhook error: {e}")
     return "", 200
+
+
+@app.route("/api/download/<int:file_id>", methods=["POST"])
+def api_download(file_id):
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("UPDATE files SET downloads = COALESCE(downloads, 0) + 1 WHERE id = %s RETURNING downloads", (file_id,))
+    row = c.fetchone()
+    conn.commit()
+    conn.close()
+    return jsonify({"downloads": row["downloads"] if row else 0})
 
 
 if __name__ == "__main__":

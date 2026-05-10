@@ -108,7 +108,7 @@
 
     <!-- Files Tab -->
     <div id="panel-files">
-      <div class="flex items-center gap-3 mb-6">
+      <div class="flex items-center gap-3 mb-4">
         <span class="h-px flex-1 bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></span>
         <span class="text-gray-400 dark:text-gray-500 text-xs font-medium tracking-widest">المواد الدراسية</span>
         <span class="h-px flex-1 bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></span>
@@ -119,6 +119,15 @@
       </div>
       <div id="subjects-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
       <div id="search-empty" class="hidden text-center py-10 text-gray-400 dark:text-gray-500">لا توجد نتائج للبحث</div>
+      <!-- Recent Activity -->
+      <div id="recent-section" class="hidden mt-8">
+        <div class="flex items-center gap-3 mb-3">
+          <span class="h-px flex-1 bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></span>
+          <span class="text-gray-400 dark:text-gray-500 text-xs font-medium tracking-widest">🕐 آخر النشاطات</span>
+          <span class="h-px flex-1 bg-gradient-to-r from-transparent via-gray-300 dark:via-gray-600 to-transparent"></span>
+        </div>
+        <div id="recent-list" class="space-y-2"></div>
+      </div>
     </div>
 
     <!-- Exams Tab -->
@@ -332,8 +341,8 @@
           const rows = items.map((x, idx) => {
             const pdf = x.original.toLowerCase().endsWith('.pdf');
             const clr = getComputedStyle(document.documentElement).getPropertyValue('--c600').trim();
-            const u = x.url;
-            return `<tr class="${idx%2===0?'bg-white dark:bg-gray-800/50':'bg-gray-50 dark:bg-gray-800/30'} hover:bg-gray-100 dark:hover:bg-gray-700/50"><td class="px-3 py-2.5 text-xs text-gray-700 dark:text-gray-200" style="word-break:break-word;max-width:0">${pdf ? '<svg class="w-3.5 h-3.5 text-red-500 inline shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> ' : ''}${x.original}</td><td class="px-1 py-2.5 text-left whitespace-nowrap"><a href="${u}" target="_blank" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="عرض"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a><a href="${x.download_url}" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="تحميل"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></a><button onclick="navigator.clipboard.writeText('${u}');showToast('✅ تم نسخ الرابط')" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="نسخ الرابط"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button></td></tr>`;
+            const u = x.url, fid = x.id;
+            return `<tr class="${idx%2===0?'bg-white dark:bg-gray-800/50':'bg-gray-50 dark:bg-gray-800/30'} hover:bg-gray-100 dark:hover:bg-gray-700/50"><td class="px-3 py-2.5 text-xs text-gray-700 dark:text-gray-200" style="word-break:break-word;max-width:0">${pdf ? '<svg class="w-3.5 h-3.5 text-red-500 inline shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> ' : ''}${x.original}</td><td class="px-1 py-2.5 text-left whitespace-nowrap"><a href="${u}" target="_blank" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="عرض"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a><a href="${x.download_url}" onclick="fetch('/api/download/${fid}',{method:'POST'})" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="تحميل"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></a><button onclick="navigator.clipboard.writeText('${u}');showToast('✅ تم نسخ الرابط')" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="نسخ الرابط"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button></td></tr>`;
           }).join('');
           sec.innerHTML = `<div class="border-r-4 ${cc[cat]} rounded-l-lg overflow-hidden"><div class="px-4 py-3 ${ch[cat]}"><h3 class="font-semibold text-sm">${cat}</h3></div><div class="overflow-x-auto"><table class="w-full text-sm"><tbody>${rows}</tbody></table></div></div>`;
         }
@@ -383,6 +392,31 @@
       });
       document.getElementById('search-empty').classList.toggle('hidden', found);
     });
+
+    /* ── Recent Activity ── */
+    fetch('/api/recent').then(r => r.json()).then(items => {
+      if (items.length) {
+        document.getElementById('recent-section').classList.remove('hidden');
+        const list = document.getElementById('recent-list');
+        items.forEach((x, i) => {
+          const el = document.createElement('a');
+          el.href = x.url;
+          el.target = '_blank';
+          el.className = 'card-in flex items-center gap-3 bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl px-4 py-3 hover:-translate-y-0.5 hover:shadow-md transition-all duration-300';
+          el.style.animationDelay = (i * 0.05) + 's';
+          el.innerHTML = `<div class="w-8 h-8 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-sm flex-shrink-0">📄</div><div class="flex-1 min-w-0"><div class="text-sm font-medium text-gray-800 dark:text-gray-100 truncate">${x.name}</div><div class="text-xs text-gray-400 mt-0.5">${x.subject} · ${x.category}</div></div><div class="text-xs text-gray-400 flex-shrink-0">${timeAgo(x.time)}</div>`;
+          list.appendChild(el);
+        });
+      }
+    });
+    function timeAgo(iso) {
+      const sec = (new Date() - new Date(iso)) / 1000;
+      if (sec < 60) return 'الآن';
+      if (sec < 3600) return `منذ ${Math.floor(sec/60)} د`;
+      if (sec < 86400) return `منذ ${Math.floor(sec/3600)} س`;
+      if (sec < 2592000) return `منذ ${Math.floor(sec/86400)} ي`;
+      return new Date(iso).toLocaleDateString('ar');
+    }
 
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
     renderExams('all');
