@@ -77,6 +77,14 @@ def init_db():
             uploaded_at TEXT NOT NULL
         )
     """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS announcements (
+            id SERIAL PRIMARY KEY,
+            content TEXT NOT NULL,
+            enabled BOOLEAN DEFAULT TRUE,
+            created_at TEXT NOT NULL
+        )
+    """)
     conn.commit()
     conn.close()
 
@@ -186,18 +194,34 @@ def api_files():
     return jsonify(get_files_by_subject())
 
 
+@app.route("/api/announcements")
+def api_announcements():
+    conn = get_db()
+    c = conn.cursor()
+    c.execute("SELECT content FROM announcements WHERE enabled = TRUE ORDER BY id DESC")
+    rows = c.fetchall()
+    conn.close()
+    return jsonify([r["content"] for r in rows])
 
 
 
 
-def is_admin(message):
-    return message.from_user.id == ADMIN_ID
 
 
-def subject_keyboard():
+def main_menu():
+    markup = InlineKeyboardMarkup(row_width=1)
+    markup.add(InlineKeyboardButton(text="📁 إضافة ملفات", callback_data="action_add"))
+    markup.add(InlineKeyboardButton(text="🗑️ حذف ملفات", callback_data="action_delete"))
+    markup.add(InlineKeyboardButton(text="📢 إعلان جديد", callback_data="action_announce"))
+    markup.add(InlineKeyboardButton(text="❌ حذف إعلان", callback_data="action_delannounce"))
+    return markup
+
+
+def subject_keyboard(action):
     markup = InlineKeyboardMarkup(row_width=1)
     for i, s in enumerate(SUBJECTS):
-        markup.add(InlineKeyboardButton(text=s, callback_data=f"subj_{i}"))
+        markup.add(InlineKeyboardButton(text=s, callback_data=f"{action}_{i}"))
+    markup.add(InlineKeyboardButton(text="🔙 رجوع", callback_data="back_main"))
     return markup
 
 
@@ -205,84 +229,156 @@ def category_keyboard():
     markup = InlineKeyboardMarkup(row_width=2)
     for i, c in enumerate(CATEGORIES):
         markup.add(InlineKeyboardButton(text=c, callback_data=f"cat_{i}"))
+    markup.add(InlineKeyboardButton(text="🔙 رجوع", callback_data="back_main"))
     return markup
 
 
 if bot:
+    user_state = {}
+
+    def is_admin(message):
+        return message.from_user.id == ADMIN_ID
+
     @bot.message_handler(commands=["start"])
     def handle_start(message):
         if not is_admin(message):
-            bot.reply_to(message, "You are not authorized to use this bot.")
+            bot.reply_to(message, "أنت غير مخول لاستخدام هذا البوت.")
             return
-        bot.reply_to(message, "Welcome, Admin! Choose a subject to upload a file:", reply_markup=subject_keyboard())
+        user_state[message.from_user.id] = {}
+        bot.reply_to(message, "مرحباً بك! اختر أمراً:", reply_markup=main_menu())
 
-    user_state = {}
-
-    @bot.callback_query_handler(func=lambda call: call.data.startswith("subj_"))
-    def handle_subject_choice(call):
+    @bot.callback_query_handler(func=lambda call: call.data == "back_main")
+    def back_to_main(call):
         if call.from_user.id != ADMIN_ID:
-            bot.answer_callback_query(call.id, "Unauthorized")
             return
-        idx = int(call.data[len("subj_"):])
-        subject = SUBJECTS[idx]
-        user_state[call.from_user.id] = {"subject": subject}
-        bot.edit_message_text(f"Subject selected: {subject}\nNow choose a category:", call.message.chat.id, call.message.message_id, reply_markup=category_keyboard())
+        user_state[call.from_user.id] = {}
+        bot.edit_message_text("مرحباً بك! اختر أمراً:", call.message.chat.id, call.message.message_id, reply_markup=main_menu())
         bot.answer_callback_query(call.id)
 
+    @bot.callback_query_handler(func=lambda call: call.data == "action_add")
+    def pick_subject_for_add(call):
+        if call.from_user.id != ADMIN_ID:
+            return
+        bot.edit_message_text("اختر المادة:", call.message.chat.id, call.message.message_id, reply_markup=subject_keyboard("addupload"))
+        bot.answer_callback_query(call.id)
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("addupload_"))
+    def handle_add_subject(call):
+        if call.from_user.id != ADMIN_ID:
+            return
+        idx = int(call.data[len("addupload_"):])
+        subject = SUBJECTS[idx]
+        user_state[call.from_user.id] = {"subject": subject}
+        bot.edit_message_text(f"المادة: {subject}\nاختر الفئة:", call.message.chat.id, call.message.message_id, reply_markup=category_keyboard())
+        bot.answer_callback_query(call.id)
+
+    # Re-use existing cat_ callbacks for upload flow
     @bot.callback_query_handler(func=lambda call: call.data.startswith("cat_"))
     def handle_category_choice(call):
         if call.from_user.id != ADMIN_ID:
-            bot.answer_callback_query(call.id, "Unauthorized")
             return
         idx = int(call.data[len("cat_"):])
         category = CATEGORIES[idx]
         state = user_state.get(call.from_user.id)
         if not state or "subject" not in state:
-            bot.edit_message_text("Please start over with /start", call.message.chat.id, call.message.message_id)
+            bot.edit_message_text("الرجاء البدء من /start", call.message.chat.id, call.message.message_id)
             bot.answer_callback_query(call.id)
             return
         state["category"] = category
         user_state[call.from_user.id] = state
-        bot.edit_message_text(f"Subject: {state['subject']}\nCategory: {category}\n\nNow send me the file (PDF or image).", call.message.chat.id, call.message.message_id)
+        bot.edit_message_text(f"المادة: {state['subject']}\nالفئة: {category}\n\nأرسل الملف الآن:", call.message.chat.id, call.message.message_id)
         bot.answer_callback_query(call.id)
 
-    @bot.message_handler(commands=["delete"])
-    def handle_delete(message):
-        if not is_admin(message):
-            bot.reply_to(message, "You are not authorized.")
+    # Delete flow: pick subject
+    @bot.callback_query_handler(func=lambda call: call.data == "action_delete")
+    def pick_subject_for_delete(call):
+        if call.from_user.id != ADMIN_ID:
             return
-        files = get_recent_files(50)
+        bot.edit_message_text("اختر المادة لحذف ملف:", call.message.chat.id, call.message.message_id, reply_markup=subject_keyboard("delsubj"))
+        bot.answer_callback_query(call.id)
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("delsubj_"))
+    def show_files_for_delete(call):
+        if call.from_user.id != ADMIN_ID:
+            return
+        idx = int(call.data[len("delsubj_"):])
+        subject = SUBJECTS[idx]
+        files = get_files_by_subject_and_subject(subject)
         if not files:
-            bot.reply_to(message, "No files found.")
+            bot.edit_message_text(f"لا توجد ملفات في {subject}.", call.message.chat.id, call.message.message_id, reply_markup=subject_keyboard("delsubj"))
+            bot.answer_callback_query(call.id)
             return
         markup = InlineKeyboardMarkup(row_width=1)
-        for f in files[:20]:
-            f_id, subj, cat, orig, url, ts = f
-            label = f"[{subj[:20]}..] {cat} - {orig[:25]}"
+        for f in files[:30]:
+            f_id, orig, cat = f["id"], f["original_filename"], f["category"]
+            label = f"{cat} - {orig[:35]}"
             markup.add(InlineKeyboardButton(text=label, callback_data=f"del_{f_id}"))
-        bot.reply_to(message, "Select a file to delete (showing latest 20):", reply_markup=markup)
+        markup.add(InlineKeyboardButton(text="🔙 رجوع", callback_data="action_delete"))
+        bot.edit_message_text(f"اختر ملفاً للحذف من {subject}:", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        bot.answer_callback_query(call.id)
 
     @bot.callback_query_handler(func=lambda call: call.data.startswith("del_"))
     def handle_delete_confirm(call):
         if call.from_user.id != ADMIN_ID:
-            bot.answer_callback_query(call.id, "Unauthorized")
             return
         file_id = int(call.data[len("del_"):])
         public_id, subject = delete_file_record(file_id)
         if public_id:
-            bot.edit_message_text("File deleted successfully.", call.message.chat.id, call.message.message_id)
+            bot.edit_message_text(f"✅ تم حذف الملف بنجاح.", call.message.chat.id, call.message.message_id, reply_markup=main_menu())
         else:
-            bot.edit_message_text("File not found or already deleted.", call.message.chat.id, call.message.message_id)
+            bot.edit_message_text("الملف غير موجود.", call.message.chat.id, call.message.message_id, reply_markup=main_menu())
         bot.answer_callback_query(call.id)
+
+    # Announcement flow
+    @bot.callback_query_handler(func=lambda call: call.data == "action_announce")
+    def start_announce(call):
+        if call.from_user.id != ADMIN_ID:
+            return
+        user_state[call.from_user.id] = {"awaiting_announce": True}
+        bot.edit_message_text("أرسل نص الإعلان الذي تريد إضافته:", call.message.chat.id, call.message.message_id)
+        bot.answer_callback_query(call.id)
+
+    @bot.callback_query_handler(func=lambda call: call.data == "action_delannounce")
+    def show_announcements(call):
+        if call.from_user.id != ADMIN_ID:
+            return
+        announcements = get_announcements()
+        if not announcements:
+            bot.edit_message_text("لا توجد إعلانات.", call.message.chat.id, call.message.message_id, reply_markup=main_menu())
+            bot.answer_callback_query(call.id)
+            return
+        markup = InlineKeyboardMarkup(row_width=1)
+        for a in announcements:
+            markup.add(InlineKeyboardButton(text=a["content"][:40], callback_data=f"delann_{a['id']}"))
+        markup.add(InlineKeyboardButton(text="🔙 رجوع", callback_data="back_main"))
+        bot.edit_message_text("اختر إعلاناً لحذفه:", call.message.chat.id, call.message.message_id, reply_markup=markup)
+        bot.answer_callback_query(call.id)
+
+    @bot.callback_query_handler(func=lambda call: call.data.startswith("delann_"))
+    def delete_announce(call):
+        if call.from_user.id != ADMIN_ID:
+            return
+        aid = int(call.data[len("delann_"):])
+        delete_announcement(aid)
+        bot.edit_message_text("✅ تم حذف الإعلان.", call.message.chat.id, call.message.message_id, reply_markup=main_menu())
+        bot.answer_callback_query(call.id)
+
+    @bot.message_handler(func=lambda m: user_state.get(m.from_user.id, {}).get("awaiting_announce"))
+    def handle_announce_text(message):
+        if not is_admin(message):
+            return
+        add_announcement(message.text)
+        user_state[message.from_user.id] = {}
+        bot.reply_to(message, "✅ تم إضافة الإعلان.", reply_markup=main_menu())
 
     @bot.message_handler(content_types=["document", "photo"])
     def handle_file(message):
         if not is_admin(message):
-            bot.reply_to(message, "You are not authorized.")
+            bot.reply_to(message, "أنت غير مخول.")
             return
         state = user_state.get(message.from_user.id)
         if not state or "subject" not in state or "category" not in state:
-            bot.reply_to(message, "Please use /start first to choose a subject and category before sending a file.")
+            bot.reply_to(message, "الرجاء استخدام /start ثم اختيار إضافة ملفات.", reply_markup=main_menu())
             return
         subject = state["subject"]
         category = state["category"]
@@ -305,7 +401,7 @@ if bot:
             overwrite=True,
         )
         save_file_record(subject, category, original_name, upload_result["secure_url"], upload_result["public_id"], upload_result.get("resource_type", resource_type))
-        bot.reply_to(message, f"File saved!\n\nSubject: {subject}\nCategory: {category}\nFile: {original_name}\n\nSend more files or use /start to change.")
+        bot.reply_to(message, f"✅ تم حفظ الملف!\n\nالمادة: {subject}\nالفئة: {category}\nالملف: {original_name}", reply_markup=main_menu())
 
 
 def run_bot():
