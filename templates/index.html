@@ -21,6 +21,9 @@
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes countPop { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
     @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+    @keyframes darkSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(1.2); } 100% { transform: rotate(360deg) scale(1); } }
+    .dark-spin { animation: darkSpin 0.4s ease; }
+    .dark-transition, .dark-transition * { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease, box-shadow 0.3s ease !important; }
     .fade-in { animation: fadeInUp 0.5s ease both; }
     .countdown-update { animation: countPop 0.3s ease; }
     body { -webkit-tap-highlight-color: transparent; }
@@ -49,14 +52,14 @@
 <body class="bg-gray-50 dark:bg-gray-900 font-sans antialiased transition-colors duration-200">
 
   <!-- Announcement Bar -->
-  <div id="announcement-bar" class="hidden bg-gradient-to-r from-red-600 via-rose-500 to-orange-500 text-white text-sm py-2.5 overflow-hidden shadow-lg border-b-2 border-yellow-300">
+  <div id="announcement-bar" class="hidden bg-gradient-to-r from-red-600 via-rose-500 to-orange-500 text-white text-sm py-2.5 overflow-hidden shadow-lg border-b-2 border-yellow-300 transition-colors duration-300">
     <div class="ticker-wrap">
       <div id="ticker-text" class="ticker-text font-medium"></div>
     </div>
   </div>
 
   <!-- Header -->
-  <header id="site-header" class="text-white shadow-lg" style="background:linear-gradient(135deg,var(--c600),var(--c700),var(--c900))">
+  <header id="site-header" class="text-white shadow-lg transition-colors duration-300" style="background:linear-gradient(135deg,var(--c600),var(--c700),var(--c900))">
     <div class="max-w-6xl mx-auto px-4 py-5">
       <div class="flex items-center justify-between">
         <div>
@@ -79,7 +82,7 @@
     </div>
   </header>
 
-  <main class="max-w-6xl mx-auto px-4 py-6">
+  <main class="max-w-6xl mx-auto px-4 py-6 transition-colors duration-300">
 
     <!-- Files Tab -->
     <div id="panel-files">
@@ -108,14 +111,14 @@
       <div id="exam-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-5"></div>
     </div>
 
-    <footer class="mt-12 text-center text-gray-400 dark:text-gray-600 text-xs border-t border-gray-200 dark:border-gray-700 pt-6">
+    <footer class="mt-12 text-center text-gray-400 dark:text-gray-600 text-xs border-t border-gray-200 dark:border-gray-700 pt-6 transition-colors duration-300">
       تم إنشاء الموقع بواسطة <a href="https://t.me/vmw23" target="_blank" class="hover:underline font-medium" style="color:var(--c600)" onmouseover="this.style.color='var(--c800)'" onmouseout="this.style.color='var(--c600)'">@vmw23</a> &copy; 2026
     </footer>
   </main>
 
   <!-- Modal -->
-  <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 z-40 hidden" onclick="closeModal()"></div>
-  <div id="modal" class="fixed inset-x-0 bottom-0 z-50 transform translate-y-full transition-transform duration-300 md:inset-y-0 md:right-0 md:left-auto md:w-3/4 lg:w-2/3 xl:w-1/2 md:translate-y-0 md:translate-x-full md:transition-transform md:duration-300 bg-white dark:bg-gray-800 shadow-2xl" style="height:100dvh;max-height:100dvh;">
+  <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 z-40 hidden transition-colors duration-300" onclick="closeModal()"></div>
+  <div id="modal" class="fixed inset-x-0 bottom-0 z-50 transform translate-y-full transition-transform duration-300 md:inset-y-0 md:right-0 md:left-auto md:w-3/4 lg:w-2/3 xl:w-1/2 md:translate-y-0 md:translate-x-full md:transition-transform md:duration-300 bg-white dark:bg-gray-800 shadow-2xl transition-colors duration-300" style="height:100dvh;max-height:100dvh;">
     <div class="flex flex-col h-full overflow-hidden rounded-t-2xl md:rounded-l-2xl">
       <div class="flex items-center justify-between text-white px-5 py-4 shrink-0" style="background:var(--c700)">
         <h2 id="modal-title" class="text-lg font-semibold truncate"></h2>
@@ -145,9 +148,16 @@
       document.documentElement.classList.add('dark'); localStorage.setItem('dark','true');
     }
     document.getElementById('dark-toggle').addEventListener('click', () => {
-      const dark = !document.documentElement.classList.toggle('dark');
+      const html = document.documentElement;
+      html.classList.add('dark-transition');
+      const dark = !html.classList.toggle('dark');
       localStorage.setItem('dark', dark);
-      document.getElementById('dark-toggle').textContent = dark ? '🌙' : '☀️';
+      const btn = document.getElementById('dark-toggle');
+      btn.textContent = dark ? '🌙' : '☀️';
+      btn.classList.remove('dark-spin');
+      void btn.offsetWidth;
+      btn.classList.add('dark-spin');
+      setTimeout(() => html.classList.remove('dark-transition'), 400);
     });
     document.getElementById('dark-toggle').textContent = document.documentElement.classList.contains('dark') ? '🌙' : '☀️';
 
@@ -250,7 +260,7 @@
 
     function renderCards() {
       const g = document.getElementById('subjects-grid');
-      g.innerHTML = SUBJECTS.map((s, i) => { const c = SI[i]; return `<button onclick="openModal('${s.replace(/'/g,"\\'")}')" class="group text-right ${c.bg} ${c.border} ${c.h} border-2 rounded-xl p-5 shadow-sm hover:shadow-md transition-all focus:outline-none" style="--ring:var(--c500)" onfocus="this.style.boxShadow='0 0 0 3px var(--ring)'" onblur="this.style.boxShadow=''"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg ${c.iconClr} bg-white dark:bg-gray-800 bg-opacity-80 flex items-center justify-center text-lg shadow-sm flex-shrink-0">${c.icon}</div><span class="font-medium text-gray-800 dark:text-gray-100 text-sm">${s}</span></div><div class="mt-3 flex items-center text-xs ${c.iconClr} gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> عرض الملفات</div></button>`; }).join('');
+      g.innerHTML = SUBJECTS.map((s, i) => { const c = SI[i]; return `<button onclick="openModal('${s.replace(/'/g,"\\'")}')" class="group text-right ${c.bg} ${c.border} ${c.h} border-2 rounded-xl p-5 shadow-sm hover:shadow-md transition-all duration-300 focus:outline-none" style="--ring:var(--c500)" onfocus="this.style.boxShadow='0 0 0 3px var(--ring)'" onblur="this.style.boxShadow=''"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg ${c.iconClr} bg-white dark:bg-gray-800 bg-opacity-80 flex items-center justify-center text-lg shadow-sm flex-shrink-0">${c.icon}</div><span class="font-medium text-gray-800 dark:text-gray-100 text-sm">${s}</span></div><div class="mt-3 flex items-center text-xs ${c.iconClr} gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> عرض الملفات</div></button>`; }).join('');
     }
 
     /* ── Modal ── */
