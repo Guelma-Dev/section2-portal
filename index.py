@@ -485,7 +485,7 @@ def api_chat():
     exams_list = "\n".join([f"- {e['subject']}: {e['date']} الساعة {e['time']} ({e['session']})" for e in EXAMS])
 
     # Try Groq on-demand
-    GROQ_MODEL = "llama-3.1-8b-instant"
+    GROQ_MODELS = ["llama-3.1-8b-instant", "llama3-8b-8192", "mixtral-8x7b-32768", "gemma2-9b-it"]
     if GROQ_KEY:
         prompt = f"""أنت مساعد ذكي لموقع أكاديمي لقسم جامعي. أجب بالعربية فقط وبشكل مختصر ومفيد.
 
@@ -501,35 +501,41 @@ def api_chat():
 سؤال الطالب: {orig}
 
 أجب بشكل طبيعي ومختصر (جملتين لأربع جمل). إذا سأل عن شرح أو تلخيص، قدم شرح مختصر مفيد."""
-        try:
-            body = json.dumps({
-                "model": GROQ_MODEL,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 400,
-                "temperature": 0.7
-            }).encode()
-            req = urllib.request.Request(
-                "https://api.groq.com/openai/v1/chat/completions",
-                data=body,
-                headers={
-                    "Content-Type": "application/json",
-                    "Authorization": f"Bearer {GROQ_KEY}"
-                },
-                method="POST"
-            )
-            resp = urllib.request.urlopen(req, timeout=15)
-            result = json.loads(resp.read())
-            text = result["choices"][0]["message"]["content"].strip()
-            if text:
-                logger.info(f"Groq OK: {text[:60]}...")
-                return jsonify({"reply": text})
-            else:
-                logger.warning("Groq returned empty text")
-        except urllib.error.HTTPError as e2:
-            body_err = e2.read().decode()[:300]
-            logger.warning(f"Groq HTTP {e2.code}: {body_err}")
-        except Exception as e2:
-            logger.warning(f"Groq error: {str(e2)[:200]}")
+        last_err = ""
+        for model in GROQ_MODELS:
+            try:
+                body = json.dumps({
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "max_tokens": 400,
+                    "temperature": 0.7
+                }).encode()
+                req = urllib.request.Request(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    data=body,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {GROQ_KEY}"
+                    },
+                    method="POST"
+                )
+                resp = urllib.request.urlopen(req, timeout=15)
+                result = json.loads(resp.read())
+                text = result["choices"][0]["message"]["content"].strip()
+                if text:
+                    logger.info(f"Groq ({model}) OK: {text[:60]}...")
+                    return jsonify({"reply": text})
+                else:
+                    logger.warning(f"Groq ({model}) empty text")
+            except urllib.error.HTTPError as e2:
+                body_err = e2.read().decode()[:300]
+                last_err = f"Groq {model} HTTP {e2.code}: {body_err}"
+                logger.warning(last_err)
+            except Exception as e2:
+                last_err = f"Groq {model} error: {str(e2)[:200]}"
+                logger.warning(last_err)
+        if last_err:
+            logger.warning(f"All Groq models failed: {last_err}")
 
     # ── Fallback: rule-based ──
     subj_map = {
