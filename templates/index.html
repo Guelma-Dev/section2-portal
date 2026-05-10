@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#4f46e5">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/static/icon.svg">
   <title>Section 2 - Groupe 12 | Portal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -417,6 +423,9 @@
       if (sec < 2592000) return `منذ ${Math.floor(sec/86400)} ي`;
       return new Date(iso).toLocaleDateString('ar');
     }
+
+    /* ── PWA ── */
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
     renderExams('all');

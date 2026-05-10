@@ -4,7 +4,7 @@ import json
 import logging
 from datetime import datetime
 
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
@@ -230,6 +230,11 @@ def get_announcements():
 @app.route("/")
 def index():
     return render_template("index.html", subjects=SUBJECTS, exams=EXAMS)
+
+
+@app.route("/sw.js")
+def sw_js():
+    return send_from_directory(BASE_DIR, "sw.js", mimetype="application/javascript")
 
 
 @app.route("/api/files")
