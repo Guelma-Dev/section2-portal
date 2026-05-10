@@ -22,10 +22,16 @@
     @keyframes countPop { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
     @keyframes ticker { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
     @keyframes darkSpin { 0% { transform: rotate(0deg) scale(1); } 50% { transform: rotate(180deg) scale(1.2); } 100% { transform: rotate(360deg) scale(1); } }
-    @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-    @keyframes cardIn { from { opacity: 0; transform: translateY(30px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
-    .card-float { animation: floatY 3s ease-in-out infinite; }
-    .card-in { animation: cardIn 0.5s ease both; }
+    @keyframes cardIn { 0% { opacity:0; transform:translateY(60px) scale(0.9); } 60% { transform:translateY(-8px) scale(1.02); } 100% { opacity:1; transform:translateY(0) scale(1); } }
+    @keyframes iconBounce { 0%,100% { transform:scale(1) rotate(0deg); } 25% { transform:scale(1.15) rotate(-5deg); } 75% { transform:scale(1.15) rotate(5deg); } }
+    @keyframes pressPop { 0% { transform:scale(1); } 40% { transform:scale(0.96); } 100% { transform:scale(1); } }
+    .card-in { animation: cardIn 0.6s cubic-bezier(0.34,1.56,0.64,1) both; }
+    .card-hover { transition:all 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+    .card-hover:hover { transform:translateY(-12px) scale(1.02) !important; box-shadow:0 20px 40px -8px rgba(0,0,0,0.15), 0 8px 16px -6px rgba(0,0,0,0.1) !important; }
+    .dark .card-hover:hover { box-shadow:0 20px 40px -8px rgba(0,0,0,0.4), 0 8px 16px -6px rgba(0,0,0,0.2) !important; }
+    .card-press:active { animation: pressPop 0.25s ease; }
+    .exam-hover { transition:all 0.35s cubic-bezier(0.34,1.56,0.64,1); }
+    .exam-hover:hover { transform:translateY(-10px) scale(1.015) !important; box-shadow:0 16px 32px -8px rgba(0,0,0,0.12) !important; }
     .dark-spin { animation: darkSpin 0.4s ease; }
     .dark-transition, .dark-transition * { transition: background-color 0.3s ease, border-color 0.3s ease, color 0.2s ease, box-shadow 0.3s ease !important; }
     .fade-in { animation: fadeInUp 0.5s ease both; }
@@ -234,7 +240,7 @@
         const p = d < new Date();
         const sc = e.session === 'صباحية' ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' : 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300';
         const card = document.createElement('div');
-        card.className = 'fade-in bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden hover:-translate-y-1 hover:shadow-lg transition-all duration-300 ease-out';
+        card.className = 'fade-in exam-hover bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden';
         card.style.animationDelay = (i * 0.07) + 's';
         card.innerHTML = `<div class="p-4 ${p ? 'opacity-60' : ''}"><div class="flex justify-between items-start mb-2"><h3 class="font-bold text-gray-800 dark:text-gray-100 text-sm">${e.subject}</h3><span class="px-2 py-0.5 rounded-full text-xs font-medium ${sc}">${e.session}</span></div><p class="text-gray-500 dark:text-gray-400 text-xs mb-1">${fmtDate(e.date)}</p><p class="text-gray-400 dark:text-gray-500 text-xs mb-3">⏰ ${e.time}</p><div id="cd-${i}" class="flex gap-2">${p ? '<span class="text-red-500 dark:text-red-400 text-sm font-medium">✅ انتهى الامتحان</span>' : '<div class="flex-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-2 text-center"><div class="text-lg font-bold" id="d-'+i+'" style="color:var(--c600)">--</div><div class="text-[10px] text-gray-400 dark:text-gray-500">يوم</div></div><div class="flex-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-2 text-center"><div class="text-lg font-bold" id="h-'+i+'" style="color:var(--c600)">--</div><div class="text-[10px] text-gray-400 dark:text-gray-500">ساعة</div></div><div class="flex-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-2 text-center"><div class="text-lg font-bold" id="m-'+i+'" style="color:var(--c600)">--</div><div class="text-[10px] text-gray-400 dark:text-gray-500">دقيقة</div></div><div class="flex-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-2 text-center"><div class="text-lg font-bold" id="s-'+i+'" style="color:var(--c600)">--</div><div class="text-[10px] text-gray-400 dark:text-gray-500">ثانية</div></div>'}</div></div>`;
         grid.appendChild(card);
@@ -272,7 +278,7 @@
 
     function renderCards() {
       const g = document.getElementById('subjects-grid');
-      g.innerHTML = SUBJECTS.map((s, i) => { const c = SI[i]; return `<button onclick="openModal('${s.replace(/'/g,"\\'")}')" class="card-in group text-right ${c.bg} ${c.border} border-2 rounded-xl p-5 shadow-sm hover:-translate-y-1.5 hover:shadow-lg transition-all duration-300 ease-out focus:outline-none" style="--ring:var(--c500);animation-delay:${i*0.06}s" onfocus="this.style.boxShadow='0 0 0 3px var(--ring)'" onblur="this.style.boxShadow=''"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg ${c.iconClr} bg-white dark:bg-gray-800 bg-opacity-80 flex items-center justify-center text-lg shadow-sm flex-shrink-0 group-hover:scale-110 transition-transform duration-300">${c.icon}</div><span class="font-medium text-gray-800 dark:text-gray-100 text-sm">${s}</span></div><div class="mt-3 flex items-center text-xs ${c.iconClr} gap-1 group-hover:translate-x-1 transition-transform duration-300"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> عرض الملفات</div></button>`; }).join('');
+      g.innerHTML = SUBJECTS.map((s, i) => { const c = SI[i]; return `<button onclick="this.style.animation='pressPop 0.25s ease';setTimeout(()=>openModal('${s.replace(/'/g,"\\'")}'),100)" class="card-in card-hover card-press group text-right ${c.bg} ${c.border} border-2 rounded-xl p-5 shadow-sm focus:outline-none" style="--ring:var(--c500);animation-delay:${i*0.08}s" onfocus="this.style.boxShadow='0 0 0 3px var(--ring)'" onblur="this.style.boxShadow=''"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg ${c.iconClr} bg-white dark:bg-gray-800 bg-opacity-80 flex items-center justify-center text-lg shadow-sm flex-shrink-0 group-hover:animate-[iconBounce_0.6s_ease]">${c.icon}</div><span class="font-medium text-gray-800 dark:text-gray-100 text-sm">${s}</span></div><div class="mt-3 flex items-center text-xs ${c.iconClr} gap-1 group-hover:translate-x-1.5 transition-transform duration-300"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> عرض الملفات</div></button>`; }).join('');
     }
 
     /* ── Modal ── */
