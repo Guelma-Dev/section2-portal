@@ -468,6 +468,93 @@ if bot:
         bot.reply_to(message, f"✅ تم حفظ الملف!\n\nالمادة: {subject}\nالفئة: {category}\nالملف: {original_name}", reply_markup=main_menu())
 
 
+@app.route("/api/chat", methods=["POST"])
+def api_chat():
+    msg = request.json.get("message", "").strip()
+    if not msg:
+        return jsonify({"reply": "اكتب سؤالك 😊"})
+    orig = msg
+    msg = msg.lower()
+
+    # subject keywords map
+    subj_map = {
+        "اقتصاد المؤسسة": ["اقتصاد المؤسسة", "مؤسسة", "اقتصاد مؤسسة"],
+        "اقتصاد جزئي": ["اقتصاد جزئي", "جزئي", "اقتصاد الجزئي"],
+        "الرياضيات 2": ["رياضيات", "رياضيات 2"],
+        "الإحصاء 2": ["احصاء", "إحصاء", "إحصاء 2", "احصاء 2", "الإحصاء"],
+        "تاريخ الفكر الاقتصادي": ["تاريخ الفكر", "فكر اقتصادي", "تاريخ اقتصادي"],
+        "أساسيات البرمجة بايثون 2": ["برمجة", "بايثون", "برمجة بايثون", "أساسيات البرمجة"],
+        "المحاسبة المالية 2": ["محاسبة", "محاسبة مالية", "محاسبة 2"],
+        "المصطلحات الاقتصادية بالإنجليزية": ["مصطلحات", "مصطلحات اقتصادية", "إنجليزية", "انجليزية", "انجليزي"],
+        "القانون التجاري": ["قانون", "قانون تجاري", "تجاري"],
+    }
+    cat_map = {"cours": "Cours", "td": "TD", "tp": "TP", "summary": "Summary", "ملخص": "Summary", "كورس": "Cours"}
+    days_ar = ["الأحد", "الإثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"]
+
+    found_subject = None
+    for full_name, keywords in subj_map.items():
+        if any(k in msg for k in keywords):
+            found_subject = full_name
+            break
+
+    found_cat = None
+    for kw, cat in cat_map.items():
+        if kw in msg:
+            found_cat = cat
+            break
+
+    # Greetings
+    if any(w in msg for w in ["مرحبا", "السلام", "اهلا", "أهلا", "صباح الخير", "مساء الخير", "hi", "hello"]):
+        return jsonify({"reply": "مرحباً بك في بورتال القسم! 😊\n\nأسئلة أقدر أساعدك فيها:\n• أين ملفات مادة معينة؟\n• متى امتحان مادة؟\n• كيف أستخدم الموقع؟\n\nاكتب سؤالك 👇"})
+
+    if any(w in msg for w in ["شكرا", "شكراً", "تسلم", "thanks"]):
+        return jsonify({"reply": "العفو! دائمًا في الخدمة 🤍"})
+
+    # Exams
+    if any(w in msg for w in ["امتحان", "جدول", "موعد", "متى"]) or found_subject and any(w in msg for w in ["امتحان", "متى"]):
+        if found_subject:
+            for e in EXAMS:
+                if e["subject"] == found_subject or found_subject in e["subject"]:
+                    d = datetime.strptime(e["date"], "%Y-%m-%d")
+                    return jsonify({"reply": f"📅 امتحان {e['subject']}:\n📆 {days_ar[d.weekday()]} {d.day} {'يناير فبراير مارس أبريل ماي يونيو يوليو أغسطس سبتمبر أكتوبر نوفمبر ديسمبر'.split()[d.month-1]} {d.year}\n⏰ {e['time']}\n🌅 {e['session']}"})
+            return jsonify({"reply": f"ما لقيت موعد امتحان لـ {found_subject} ❓"})
+        exams_txt = "\n\n".join([f"📅 {e['subject']}: {e['date']} الساعة {e['time']} ({e['session']})" for e in EXAMS])
+        return jsonify({"reply": f"📋 جدول الامتحانات النهائية:\n\n{exams_txt}"})
+
+    # Files
+    if found_subject:
+        files_data = get_files_by_subject()
+        subj_files = files_data.get(found_subject)
+        if subj_files:
+            available = []
+            for cat in CATEGORIES:
+                items = subj_files.get(cat, [])
+                if not found_cat or found_cat == cat:
+                    if items:
+                        available.append(f"📂 {cat}: {len(items)} ملف")
+                        for x in items[:3]:
+                            available.append(f"  • {x['original'][:40]}")
+                        if len(items) > 3:
+                            available.append(f"  ... و{len(items)-3} ملفات أخرى")
+            if available:
+                reply = f"📚 ملفات {found_subject}:\n" + "\n".join(available)
+                reply += "\n\n📌 افتح المادة من الصفحة الرئيسية عشان تشوف الكل"
+                return jsonify({"reply": reply})
+            else:
+                return jsonify({"reply": f"ما في ملفات لـ {found_subject} في قسم ( {found_cat} ) ❓"})
+
+    # Files without subject: list subjects
+    if any(w in msg for w in ["الملفات", "المواد"]):
+        subjects_list = "\n".join([f"  {i+1}. {s}" for i, s in enumerate(SUBJECTS)])
+        return jsonify({"reply": f"📁 المواد الدراسية المتوفرة:\n{subjects_list}\n\nاكتب اسم المادة عشان تشوف ملفاتها"})
+
+    # Help
+    if any(w in msg for w in ["كيف", "وين", "أين", "استخدام", "ايش", "وش", "شنو", "ماذا", "help"]):
+        return jsonify({"reply": "🤖 كيف أستخدم البورتال:\n\n1. ابحث عن مادة (🔍)\n2. اضغط على المادة عشان تشوف ملفاتها\n3. في المودال تقدر تشوف، تحمل، أو تنسخ رابط الملف\n4. استخدم زر الألوان 🎨 عشان تغير شكل الموقع\n5. زر 🌙 عشان تظلم/تضيء الموقع"})
+
+    return jsonify({"reply": "🤔 ما فهمت سؤالك. جرب:\n\n• 'وين ملفات الرياضيات؟'\n• 'متى امتحان القانون؟'\n• 'شو المواد الموجودة؟'\n• 'كيف أستخدم الموقع؟'"})
+
+
 @app.route("/webhook", methods=["POST"])
 def webhook():
     if not bot:

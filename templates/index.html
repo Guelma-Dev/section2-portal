@@ -161,6 +161,22 @@
   <!-- Toast -->
   <div id="toast-container" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"></div>
 
+  <!-- Chat -->
+  <button id="chat-btn" class="fixed bottom-5 right-5 z-30 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white text-2xl hover:scale-110 transition-transform duration-300" style="background:var(--c600)">💬</button>
+  <div id="chat-popup" class="fixed bottom-24 right-5 z-30 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 hidden flex flex-col overflow-hidden transition-all duration-300" style="max-height:70dvh;">
+    <div class="flex items-center justify-between px-4 py-3 text-white" style="background:var(--c600)">
+      <span class="font-semibold text-sm">🤖 المساعد الذكي</span>
+      <button id="chat-close" class="text-white hover:opacity-70 text-lg leading-none">&times;</button>
+    </div>
+    <div id="chat-msgs" class="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin" style="min-height:200px;max-height:40dvh;">
+      <div class="flex items-start gap-2"><div class="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0" style="background:var(--c100)">🤖</div><div class="bg-gray-100 dark:bg-gray-700 rounded-xl rounded-tr-sm px-3 py-2 text-sm text-gray-800 dark:text-gray-100 max-w-[80%]">مرحباً! 👋 اسألني أي شيء عن المواد والامتحانات.</div></div>
+    </div>
+    <div class="border-t border-gray-200 dark:border-gray-700 p-2 flex gap-2">
+      <input id="chat-input" type="text" placeholder="اكتب سؤالك..." class="flex-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 text-sm text-gray-800 dark:text-gray-100 focus:outline-none" style="border-color:var(--c300)">
+      <button id="chat-send" class="px-3 py-2 rounded-xl text-white text-sm font-medium" style="background:var(--c600)">إرسال</button>
+    </div>
+  </div>
+
   <!-- Modal -->
   <div id="modal-overlay" class="fixed inset-0 bg-black bg-opacity-50 dark:bg-opacity-70 z-40 hidden transition-colors duration-300" onclick="closeModal()"></div>
   <div id="modal" class="fixed inset-x-0 bottom-0 z-50 transform translate-y-full transition-transform duration-300 md:inset-y-0 md:right-0 md:left-auto md:w-3/4 lg:w-2/3 xl:w-1/2 md:translate-y-0 md:translate-x-full md:transition-transform md:duration-300 bg-white dark:bg-gray-800 shadow-2xl transition-colors duration-300" style="height:100dvh;max-height:100dvh;">
@@ -425,6 +441,39 @@
     }
 
     /* ── PWA ── */
+    /* ── Chat ── */
+    const chatBtn = document.getElementById('chat-btn');
+    const chatPopup = document.getElementById('chat-popup');
+    const chatMsgs = document.getElementById('chat-msgs');
+    const chatInput = document.getElementById('chat-input');
+    const chatSend = document.getElementById('chat-send');
+    const chatClose = document.getElementById('chat-close');
+    chatBtn.onclick = () => { chatPopup.classList.remove('hidden'); chatInput.focus(); };
+    chatClose.onclick = () => chatPopup.classList.add('hidden');
+    function addMsg(text, isUser) {
+      const d = document.createElement('div');
+      d.className = 'flex items-start gap-2 ' + (isUser ? 'flex-row-reverse' : '');
+      d.innerHTML = `<div class="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0" style="background:${isUser ? 'var(--c100)' : 'var(--c100)'}">${isUser ? '👤' : '🤖'}</div><div class="${isUser ? 'text-left' : ''} rounded-xl ${isUser ? 'rounded-tl-sm' : 'rounded-tr-sm'} px-3 py-2 text-sm max-w-[80%] ${isUser ? 'text-white' : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-100'}" ${isUser ? 'style="background:var(--c600)"' : ''}>${text.replace(/\n/g,'<br>')}</div>`;
+      chatMsgs.appendChild(d);
+      chatMsgs.scrollTop = chatMsgs.scrollHeight;
+    }
+    function ask() {
+      const msg = chatInput.value.trim();
+      if (!msg) return;
+      addMsg(msg, true);
+      chatInput.value = '';
+      const typing = document.createElement('div');
+      typing.className = 'flex items-start gap-2';
+      typing.innerHTML = '<div class="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0" style="background:var(--c100)">🤖</div><div class="bg-gray-100 dark:bg-gray-700 rounded-xl px-3 py-2 text-sm text-gray-400 dark:text-gray-500">...</div>';
+      chatMsgs.appendChild(typing);
+      chatMsgs.scrollTop = chatMsgs.scrollHeight;
+      fetch('/api/chat', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({message:msg})})
+        .then(r => r.json()).then(data => { typing.remove(); addMsg(data.reply, false); })
+        .catch(() => { typing.remove(); addMsg('عذراً، صار خطأ. حاول مرة أخرى.', false); });
+    }
+    chatSend.onclick = ask;
+    chatInput.onkeydown = e => { if (e.key === 'Enter') ask(); };
+
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
 
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
