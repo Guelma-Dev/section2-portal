@@ -38,17 +38,26 @@ bot = telebot.TeleBot(BOT_TOKEN) if BOT_TOKEN else None
 
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 gemini_ok = False
+gemini_error = "not configured"
 if GEMINI_KEY:
     try:
-        data = json.dumps({"contents":[{"parts":[{"text":"مرحبا"}]}]}).encode()
+        data = json.dumps({"contents":[{"parts":[{"text":"قل مرحبا"}]}]}).encode()
         req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={GEMINI_KEY}", data=data, headers={"Content-Type":"application/json"}, method="POST")
-        resp = urllib.request.urlopen(req, timeout=10)
+        resp = urllib.request.urlopen(req, timeout=15)
         result = json.loads(resp.read())
         if result.get("candidates"):
             gemini_ok = True
             logger.info("Gemini HTTP ready")
+        else:
+            gemini_error = json.dumps(result)[:200]
+            logger.warning(f"Gemini no candidates: {gemini_error}")
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        gemini_error = f"HTTP {e.code}: {body[:200]}"
+        logger.error(f"Gemini HTTP error: {gemini_error}")
     except Exception as e:
-        logger.error(f"Gemini HTTP init failed: {e}")
+        gemini_error = str(e)[:200]
+        logger.error(f"Gemini init failed: {gemini_error}")
 
 SUBJECTS = [
     "اقتصاد المؤسسة",
@@ -619,7 +628,8 @@ def webhook():
 
 @app.route("/api/gemini-status")
 def gemini_status():
-    return jsonify({"ok": gemini_ok, "key_set": bool(GEMINI_KEY)})
+    key_preview = GEMINI_KEY[:15] + "..." if GEMINI_KEY else None
+    return jsonify({"ok": gemini_ok, "key_set": bool(GEMINI_KEY), "key_preview": key_preview, "error": gemini_error})
 
 
 @app.route("/api/download/<int:file_id>", methods=["POST"])
