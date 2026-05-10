@@ -486,8 +486,7 @@ def api_chat():
 
     # Try Gemini on-demand
     if GEMINI_KEY:
-        try:
-            prompt = f"""أنت مساعد ذكي لموقع أكاديمي لقسم جامعي. أجب بالعربية فقط وبشكل مختصر ومفيد.
+        prompt = f"""أنت مساعد ذكي لموقع أكاديمي لقسم جامعي. أجب بالعربية فقط وبشكل مختصر ومفيد.
 
 معلومات الموقع:
 المواد الدراسية:
@@ -497,35 +496,33 @@ def api_chat():
 {exams_list}
 
 الموقع فيه ملفات Cours, TD, TP, Summary لكل مادة.
-الطالب يقدر يبحث عن المواد، يفتح الملفات، يحملها، وينسخ الروابط.
-فيه شريط إعلانات متحرك، وضع مظلم، وألوان مخصصة.
 
 سؤال الطالب: {orig}
 
-أجب بشكل طبيعي ومختصر (جملتين لأربع جمل). إذا سأل عن شرح أو تلخيص، قدم شرح مختصر مفيد. إذا سأل عن ملفات، قل له يفتح المادة من الصفحة الرئيسية."""
-            models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash"]
-            reply = None
-            for model in models_to_try:
-                try:
-                    data = json.dumps({"contents":[{"parts":[{"text":prompt}]}],"generationConfig":{"maxOutputTokens":400,"temperature":0.7}}).encode()
-                    req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={GEMINI_KEY}", data=data, headers={"Content-Type":"application/json"}, method="POST")
-                    resp = urllib.request.urlopen(req, timeout=15)
-                    result = json.loads(resp.read())
-                    candidates = result.get("candidates", [])
-                    if candidates:
-                        text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
-                        if text:
-                            reply = text
-                            break
-                except urllib.error.HTTPError as e2:
-                    if e2.code != 429:
-                        break
-                    logger.warning(f"{model} quota exceeded, trying next")
-            if reply:
-                logger.info(f"Gemini OK: {reply[:60]}...")
-                return jsonify({"reply": reply})
-        except Exception as e:
-            logger.error(f"Gemini error: {e}")
+أجب بشكل طبيعي ومختصر (جملتين لأربع جمل). إذا سأل عن شرح أو تلخيص، قدم شرح مختصر مفيد."""
+        models_to_try = ["gemini-2.0-flash", "gemini-1.5-flash"]
+        for model in models_to_try:
+            try:
+                data = json.dumps({"contents":[{"parts":[{"text":prompt}]}],"generationConfig":{"maxOutputTokens":400,"temperature":0.7}}).encode()
+                req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1/models/{model}:generateContent?key={GEMINI_KEY}", data=data, headers={"Content-Type":"application/json"}, method="POST")
+                resp = urllib.request.urlopen(req, timeout=15)
+                result = json.loads(resp.read())
+                candidates = result.get("candidates", [])
+                if candidates:
+                    text = candidates[0].get("content", {}).get("parts", [{}])[0].get("text", "").strip()
+                    if text:
+                        logger.info(f"Gemini ({model}) OK: {text[:60]}...")
+                        return jsonify({"reply": text})
+                    else:
+                        logger.warning(f"Gemini ({model}) empty text")
+                else:
+                    reason = result.get("promptFeedback", {}).get("blockReason", "unknown")
+                    logger.warning(f"Gemini ({model}) no candidates, blockReason={reason}")
+            except urllib.error.HTTPError as e2:
+                body = e2.read().decode()[:200]
+                logger.warning(f"Gemini ({model}) HTTP {e2.code}: {body}")
+            except Exception as e2:
+                logger.warning(f"Gemini ({model}) error: {str(e2)[:200]}")
 
     # ── Fallback: rule-based ──
     subj_map = {
