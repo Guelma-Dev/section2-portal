@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from groq import Groq
+import google.generativeai as genai
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -36,6 +37,7 @@ ADMIN_ID = int(os.getenv("ADMIN_ID", "0"))
 bot = telebot.TeleBot(BOT_TOKEN) if BOT_TOKEN else None
 
 GROQ_KEY = os.getenv("GROQ_API_KEY")
+GEMINI_KEY = os.getenv("GEMINI_API_KEY")
 
 SUBJECTS = [
     "اقتصاد المؤسسة",
@@ -492,7 +494,7 @@ def api_chat():
 
 الطالب: {orig}
 الرد:"""
-        models_to_try = ["mixtral-8x7b-32768", "llama-3.1-8b-instant", "llama3-8b-8192"]
+        models_to_try = ["llama3-70b-8192", "mixtral-8x7b-32768", "llama-3.1-8b-instant", "llama3-8b-8192"]
         for model in models_to_try:
             try:
                 response = client.chat.completions.create(
@@ -508,6 +510,19 @@ def api_chat():
             except Exception as e:
                 logger.warning(f"Groq ({model}) error: {str(e)[:200]}")
                 continue
+
+    # ── Fallback: Gemini (if Groq fails or no Groq key) ──
+    if GEMINI_KEY:
+        try:
+            genai.configure(api_key=GEMINI_KEY)
+            model = genai.GenerativeModel("gemini-2.0-flash")
+            gemini_prompt = f"أنت بوت دردشة طبيعي اسمك بوت. ودود ومرح. أجب بالعربية.\nالطالب: {orig}\nالرد:"
+            resp = model.generate_content(gemini_prompt)
+            if resp and resp.text:
+                logger.info(f"Gemini OK: {resp.text[:60]}...")
+                return jsonify({"reply": resp.text.strip()})
+        except Exception as e:
+            logger.warning(f"Gemini error: {str(e)[:200]}")
 
     # ── Fallback: rule-based ──
     subj_map = {
@@ -599,8 +614,13 @@ def webhook():
 
 @app.route("/api/ai-status")
 def ai_status():
-    key_preview = GROQ_KEY[:15] + "..." if GROQ_KEY else None
-    return jsonify({"key_set": bool(GROQ_KEY), "key_preview": key_preview, "provider": "groq", "model": "llama-3.1-8b-instant"})
+    groq_preview = GROQ_KEY[:15] + "..." if GROQ_KEY else None
+    gemini_preview = GEMINI_KEY[:15] + "..." if GEMINI_KEY else None
+    return jsonify({
+        "groq": {"key_set": bool(GROQ_KEY), "key_preview": groq_preview},
+        "gemini": {"key_set": bool(GEMINI_KEY), "key_preview": gemini_preview},
+        "active_provider": "groq" if GROQ_KEY else "gemini" if GEMINI_KEY else "none"
+    })
 
 
 @app.route("/api/download/<int:file_id>", methods=["POST"])
