@@ -479,28 +479,20 @@ def api_chat():
     orig = msg
     msg_lower = msg.lower()
 
-    # Build portal context for Gemini
-    subj_list = "\n".join([f"- {s}" for s in SUBJECTS])
-    exams_list = "\n".join([f"- {e['subject']}: {e['date']} الساعة {e['time']} ({e['session']})" for e in EXAMS])
-
     # Try Groq on-demand
     if GROQ_KEY:
         client = Groq(api_key=GROQ_KEY)
-        prompt = f"""أنت مساعد ذكي لموقع أكاديمي لقسم جامعي. أجب بالعربية فقط وبشكل مختصر ومفيد.
+        sys_msg = f"""أنت صديق طالب جامعي اسمك بوت. تتكلم عربي فصحى وعامية. عندك معلومات عن موقع القسم:
+- المواد: {', '.join(SUBJECTS)}
+- جدول الامتحانات متاح
+- في الموقع ملفات Cours, TD, TP, Summary
 
-معلومات الموقع:
-المواد المتاحة:
-{subj_list}
+تجاوب بأسلوب طبيعي وودود بدون تقييد. اسأل إذا تحس المحادثة راكدة. وفر حوار طويل وممتع."""
+        prompt = f"""{sys_msg}
 
-جدول الامتحانات:
-{exams_list}
-
-الموقع فيه ملفات Cours, TD, TP, Summary لكل مادة.
-
-سؤال الطالب: {orig}
-
-أجب بشكل طبيعي ومختصر (جملتين لأربع جمل). إذا سأل عن شرح أو تلخيص، قدم شرح مختصر مفيد."""
-        models_to_try = ["llama-3.1-8b-instant", "llama3-8b-8192", "mixtral-8x7b-32768"]
+الطالب: {orig}
+الرد:"""
+        models_to_try = ["mixtral-8x7b-32768", "llama-3.1-8b-instant", "llama3-8b-8192"]
         for model in models_to_try:
             try:
                 response = client.chat.completions.create(
