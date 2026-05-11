@@ -99,6 +99,7 @@
             <button id="color-toggle" class="w-9 h-9 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 flex items-center justify-center text-lg transition" title="ألوان الموقع">🎨</button>
             <div id="color-popup" class="absolute right-0 top-full mt-2 bg-white dark:bg-gray-800 rounded-xl shadow-xl p-2 hidden z-50" style="min-width:140px"><div id="color-picker" class="grid grid-cols-4 gap-1.5"></div></div>
           </div>
+          <button id="lang-toggle" class="w-9 h-9 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 flex items-center justify-center text-sm font-bold transition" title="Language">AR</button>
           <button id="dark-toggle" class="w-9 h-9 rounded-full bg-white bg-opacity-20 hover:bg-opacity-30 flex items-center justify-center text-lg transition" title="الوضع المظلم">🌙</button>
         </div>
       </div>
@@ -154,18 +155,32 @@
     </div>
 
     <footer class="mt-12 text-center text-gray-400 dark:text-gray-600 text-xs border-t border-gray-200 dark:border-gray-700 pt-6 transition-colors duration-300">
-      تم إنشاء الموقع بواسطة <a href="https://t.me/vmw23" target="_blank" class="hover:underline font-medium" style="color:var(--c600)" onmouseover="this.style.color='var(--c800)'" onmouseout="this.style.color='var(--c600)'">@vmw23</a> &copy; 2026
+      <span id="footer-text" data-i18n="footer">تم إنشاء الموقع بواسطة</span> <a href="https://t.me/vmw23" target="_blank" class="hover:underline font-medium" style="color:var(--c600)" onmouseover="this.style.color='var(--c800)'" onmouseout="this.style.color='var(--c600)'">@vmw23</a> &copy; 2026
     </footer>
   </main>
 
   <!-- Toast -->
   <div id="toast-container" class="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 pointer-events-none"></div>
 
+  <!-- PDF Preview Modal -->
+  <div id="pdf-overlay" class="fixed inset-0 bg-black bg-opacity-80 z-50 hidden" onclick="closePdf()"></div>
+  <div id="pdf-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-2 md:p-4">
+    <div class="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden shadow-2xl">
+      <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <span id="pdf-title" class="text-sm font-semibold text-gray-800 dark:text-gray-100 truncate"></span>
+        <button onclick="closePdf()" class="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-1"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div class="flex-1 bg-gray-100 dark:bg-gray-900">
+        <iframe id="pdf-frame" class="w-full h-full" frameborder="0"></iframe>
+      </div>
+    </div>
+  </div>
+
   <!-- Chat -->
   <button id="chat-btn" class="fixed bottom-5 right-5 z-30 w-14 h-14 rounded-full shadow-xl flex items-center justify-center text-white text-2xl hover:scale-110 transition-transform duration-300" style="background:var(--c600)">💬</button>
   <div id="chat-popup" class="fixed bottom-24 right-5 z-30 w-80 sm:w-96 bg-white dark:bg-gray-800 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 hidden flex flex-col overflow-hidden transition-all duration-300" style="max-height:70dvh;">
     <div class="flex items-center justify-between px-4 py-3 text-white" style="background:var(--c600)">
-      <span class="font-semibold text-sm">🤖 المساعد الذكي</span>
+      <span id="chat-title" class="font-semibold text-sm">🤖 المساعد الذكي</span>
       <button id="chat-close" class="text-white hover:opacity-70 text-lg leading-none">&times;</button>
     </div>
     <div id="chat-msgs" class="flex-1 overflow-y-auto p-3 space-y-2 scrollbar-thin" style="min-height:200px;max-height:40dvh;">
@@ -221,6 +236,7 @@
       setTimeout(() => html.classList.remove('dark-transition'), 400);
     });
     document.getElementById('dark-toggle').textContent = document.documentElement.classList.contains('dark') ? '🌙' : '☀️';
+    applyLang(currentLang);
 
     /* ── Color Theme ── */
     const THEMES = [
@@ -253,6 +269,91 @@
     });
     document.getElementById('color-toggle').onclick = (e) => { e.stopPropagation(); popup.classList.toggle('hidden'); };
     document.addEventListener('click', (e) => { if (!popup.classList.contains('hidden') && !popup.contains(e.target) && e.target.id !== 'color-toggle') popup.classList.add('hidden'); });
+
+    /* ── Translation ── */
+    const LANG = {
+      ar: {
+        title:'Section 2 - Groupe 12 | Portal', headerTitle:'📚 Section 2 - Groupe 12', headerSub:'الموارد الأكاديمية والملفات الدراسية',
+        tabFiles:'📁 الملفات', tabExams:'📅 الامتحانات', searchPlace:'ابحث عن مادة...', searchEmpty:'لا توجد نتائج للبحث',
+        subjectsLabel:'المواد الدراسية', recentTitle:'🕐 آخر النشاطات', noFiles:'لا توجد ملفات مرفوعة بعد لهذه المادة.', loading:'جاري تحميل الملفات...',
+        examTitle:'جدول الامتحانات النهائية', examPeriod:'الفترة الصباحية (08:30 - 10:30) • الفترة المسائية (14:00 - 16:00)',
+        filterAll:'الكل', filterMorning:'صباحي', filterEvening:'مسائي',
+        chatWelcome:'مرحباً! 👋 اسألني أي شيء عن المواد والامتحانات.', chatInput:'اكتب سؤالك...', chatSend:'إرسال', chatTitle:'🤖 المساعد الذكي',
+        pdfPreview:'معاينة PDF', download:'تحميل', copyLink:'نسخ الرابط', openFile:'فتح',
+        scrollTop:'العودة للأعلى', colorTitle:'ألوان الموقع', darkTitle:'الوضع المظلم', langTitle:'Language',
+        footer:'تم إنشاء الموقع بواسطة', examEnded:'✅ انتهى الامتحان', day:'يوم', hour:'ساعة', min:'دقيقة', sec:'ثانية',
+        viewFiles:'عرض الملفات', copied:'✅ تم نسخ الرابط', chatError:'عذراً، صار خطأ. حاول مرة أخرى.',
+        recent: 'منذ', ago: '', now:'الآن', m:'د', h:'س', d:'ي',
+      },
+      en: {
+        title:'Section 2 - Groupe 12 | Portal', headerTitle:'📚 Section 2 - Groupe 12', headerSub:'Academic Resources & Study Files',
+        tabFiles:'📁 Files', tabExams:'📅 Exams', searchPlace:'Search subjects...', searchEmpty:'No results found',
+        subjectsLabel:'Subjects', recentTitle:'🕐 Recent Activity', noFiles:'No files uploaded yet.', loading:'Loading files...',
+        examTitle:'Final Exam Schedule', examPeriod:'Morning (08:30-10:30) • Afternoon (14:00-16:00)',
+        filterAll:'All', filterMorning:'Morning', filterEvening:'Afternoon',
+        chatWelcome:"Hello! 👋 Ask me anything about subjects & exams.", chatInput:'Type your question...', chatSend:'Send', chatTitle:'🤖 AI Assistant',
+        pdfPreview:'Preview PDF', download:'Download', copyLink:'Copy Link', openFile:'Open',
+        scrollTop:'Back to top', colorTitle:'Colors', darkTitle:'Dark Mode', langTitle:'اللغة العربية',
+        footer:'Built by', examEnded:'✅ Finished', day:'d', hour:'h', min:'m', sec:'s',
+        viewFiles:'View files', copied:'✅ Link copied', chatError:'Sorry, something went wrong. Try again.',
+        recent: '', ago: ' ago', now:'now', m:'m', h:'h', d:'d',
+      },
+      fr: {
+        title:'Section 2 - Groupe 12 | Portail', headerTitle:'📚 Section 2 - Groupe 12', headerSub:'Ressources académiques et fichiers d\'étude',
+        tabFiles:'📁 Fichiers', tabExams:'📅 Examens', searchPlace:'Chercher matières...', searchEmpty:'Aucun résultat',
+        subjectsLabel:'Matières', recentTitle:'🕐 Activité récente', noFiles:'Aucun fichier uploadé.', loading:'Chargement...',
+        examTitle:'Calendrier des examens', examPeriod:'Matin (08:30-10:30) • Après-midi (14:00-16:00)',
+        filterAll:'Tous', filterMorning:'Matin', filterEvening:'Après-midi',
+        chatWelcome:"Bonjour! 👇 Posez-moi des questions sur les matières et examens.", chatInput:'Écrivez votre question...', chatSend:'Envoyer', chatTitle:'🤖 Assistant IA',
+        pdfPreview:'Aperçu PDF', download:'Télécharger', copyLink:'Copier lien', openFile:'Ouvrir',
+        scrollTop:'Retour en haut', colorTitle:'Couleurs', darkTitle:'Mode sombre', langTitle:'العربية',
+        footer:'Créé par', examEnded:'✅ Terminé', day:'j', hour:'h', min:'m', sec:'s',
+        viewFiles:'Voir fichiers', copied:'✅ Lien copié', chatError:'Désolé, une erreur est survenue.',
+        recent: 'il y a ', ago: '', now:'maintenant', m:'min', h:'h', d:'j',
+      }
+    };
+    let currentLang = localStorage.getItem('lang') || 'ar';
+    function applyLang(l) {
+      currentLang = l; localStorage.setItem('lang', l);
+      const t = LANG[l];
+      document.documentElement.lang = l === 'ar' ? 'ar' : l === 'en' ? 'en' : 'fr';
+      document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
+      document.title = t.title;
+      document.getElementById('lang-toggle').textContent = l === 'ar' ? 'AR' : l === 'en' ? 'EN' : 'FR';
+      document.querySelector('h1').textContent = t.headerTitle;
+      document.querySelector('header p').textContent = t.headerSub;
+      document.getElementById('tab-files').innerHTML = t.tabFiles;
+      document.getElementById('tab-exams').innerHTML = t.tabExams;
+      document.getElementById('search-input').placeholder = t.searchPlace;
+      document.getElementById('search-empty').textContent = t.searchEmpty;
+      const sl = document.querySelector('.tracking-widest');
+      if (sl) { const spans = document.querySelectorAll('#panel-files .tracking-widest'); if (spans.length) spans[0].textContent = t.subjectsLabel; }
+      const rt = document.querySelector('#recent-section .tracking-widest');
+      if (rt) rt.textContent = t.recentTitle;
+      const et = document.querySelector('#panel-exams h2');
+      if (et) et.textContent = t.examTitle;
+      const ep = document.querySelector('#panel-exams p');
+      if (ep) ep.textContent = t.examPeriod;
+      document.getElementById('filter-all').textContent = t.filterAll;
+      document.getElementById('filter-morning').textContent = t.filterMorning;
+      document.getElementById('filter-evening').textContent = t.filterEvening;
+      document.getElementById('chat-title').textContent = t.chatTitle;
+      document.getElementById('chat-input').placeholder = t.chatInput;
+      document.getElementById('chat-send').textContent = t.chatSend;
+      document.getElementById('color-toggle').title = t.colorTitle;
+      document.getElementById('dark-toggle').title = t.darkTitle;
+      document.getElementById('lang-toggle').title = t.langTitle;
+      document.getElementById('scroll-top').title = t.scrollTop;
+      const ft = document.getElementById('footer-text');
+      if (ft) ft.textContent = t.footer;
+      renderCards();
+      renderExams('all');
+    }
+    document.getElementById('lang-toggle').onclick = () => {
+      const langs = ['ar','en','fr'];
+      const next = langs[(langs.indexOf(currentLang) + 1) % 3];
+      applyLang(next);
+    };
 
     /* ── Tabs ── */
     function switchTab(tab) {
@@ -321,10 +422,26 @@
 
     function renderCards() {
       const g = document.getElementById('subjects-grid');
-      g.innerHTML = SUBJECTS.map((s, i) => { const c = SI[i]; return `<button onclick="this.style.animation='pressPop 0.25s ease';setTimeout(()=>openModal('${s.replace(/'/g,"\\'")}'),100)" class="card-in card-hover card-press group text-right ${c.bg} ${c.border} border-2 rounded-xl p-5 shadow-sm focus:outline-none" style="--ring:var(--c500);animation-delay:${i*0.08}s" onfocus="this.style.boxShadow='0 0 0 3px var(--ring)'" onblur="this.style.boxShadow=''"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg ${c.iconClr} bg-white dark:bg-gray-800 bg-opacity-80 flex items-center justify-center text-lg shadow-sm flex-shrink-0 group-hover:animate-[iconBounce_0.6s_ease]">${c.icon}</div><span class="font-medium text-gray-800 dark:text-gray-100 text-sm">${s}</span></div><div class="mt-3 flex items-center text-xs ${c.iconClr} gap-1 group-hover:translate-x-1.5 transition-transform duration-300"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> عرض الملفات</div></button>`; }).join('');
+      const viewTxt = LANG[currentLang].viewFiles;
+      g.innerHTML = SUBJECTS.map((s, i) => { const c = SI[i]; return `<button onclick="this.style.animation='pressPop 0.25s ease';setTimeout(()=>openModal('${s.replace(/'/g,"\\'")}'),100)" class="card-in card-hover card-press group text-right ${c.bg} ${c.border} border-2 rounded-xl p-5 shadow-sm focus:outline-none" style="--ring:var(--c500);animation-delay:${i*0.08}s" onfocus="this.style.boxShadow='0 0 0 3px var(--ring)'" onblur="this.style.boxShadow=''"><div class="flex items-center gap-3"><div class="w-10 h-10 rounded-lg ${c.iconClr} bg-white dark:bg-gray-800 bg-opacity-80 flex items-center justify-center text-lg shadow-sm flex-shrink-0 group-hover:animate-[iconBounce_0.6s_ease]">${c.icon}</div><span class="font-medium text-gray-800 dark:text-gray-100 text-sm">${s}</span></div><div class="mt-3 flex items-center text-xs ${c.iconClr} gap-1 group-hover:translate-x-1.5 transition-transform duration-300"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> ${viewTxt}</div></button>`; }).join('');
     }
 
     /* ── Modal ── */
+    /* ── PDF Preview ── */
+    function openPdf(url, name) {
+      document.getElementById('pdf-title').textContent = name || 'PDF';
+      document.getElementById('pdf-frame').src = url;
+      document.getElementById('pdf-modal').classList.remove('hidden');
+      document.getElementById('pdf-overlay').classList.remove('hidden');
+      document.body.classList.add('modal-open');
+    }
+    function closePdf() {
+      document.getElementById('pdf-modal').classList.add('hidden');
+      document.getElementById('pdf-overlay').classList.add('hidden');
+      document.getElementById('pdf-frame').src = '';
+      document.body.classList.remove('modal-open');
+    }
+
     async function openModal(s) {
       const idx = SUBJECTS.indexOf(s);
       const icon = idx >= 0 ? SI[idx].icon : '📁';
@@ -364,7 +481,7 @@
             const pdf = x.original.toLowerCase().endsWith('.pdf');
             const clr = getComputedStyle(document.documentElement).getPropertyValue('--c600').trim();
             const u = x.url, fid = x.id;
-            return `<tr class="${idx%2===0?'bg-white dark:bg-gray-800/50':'bg-gray-50 dark:bg-gray-800/30'} hover:bg-gray-100 dark:hover:bg-gray-700/50"><td class="px-3 py-2.5 text-xs text-gray-700 dark:text-gray-200" style="word-break:break-word;max-width:0">${pdf ? '<svg class="w-3.5 h-3.5 text-red-500 inline shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> ' : ''}${x.original}</td><td class="px-1 py-2.5 text-left whitespace-nowrap"><a href="${u}" target="_blank" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="عرض"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></a><a href="${x.download_url}" onclick="fetch('/api/download/${fid}',{method:'POST'})" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="تحميل"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></a><button onclick="navigator.clipboard.writeText('${u}');showToast('✅ تم نسخ الرابط')" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="نسخ الرابط"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button></td></tr>`;
+            return `<tr class="${idx%2===0?'bg-white dark:bg-gray-800/50':'bg-gray-50 dark:bg-gray-800/30'} hover:bg-gray-100 dark:hover:bg-gray-700/50"><td class="px-3 py-2.5 text-xs text-gray-700 dark:text-gray-200" style="word-break:break-word;max-width:0">${pdf ? '<svg class="w-3.5 h-3.5 text-red-500 inline shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg> ' : ''}${x.original}</td><td class="px-1 py-2.5 text-left whitespace-nowrap">${pdf ? `<button onclick="openPdf('${u}','${x.original}')" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="معاينة PDF"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg></button>` : `<a href="${u}" target="_blank" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="فتح"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg></a>`}<a href="${x.download_url}" onclick="fetch('/api/download/${fid}',{method:'POST'})" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="تحميل"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg></a><button onclick="navigator.clipboard.writeText('${u}');showToast('✅ تم نسخ الرابط')" style="color:${clr}" class="hover:opacity-70 p-1.5 inline-block" title="نسخ الرابط"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg></button></td></tr>`;
           }).join('');
           sec.innerHTML = `<div class="border-r-4 ${cc[cat]} rounded-l-lg overflow-hidden"><div class="px-4 py-3 ${ch[cat]}"><h3 class="font-semibold text-sm">${cat}</h3></div><div class="overflow-x-auto"><table class="w-full text-sm"><tbody>${rows}</tbody></table></div></div>`;
         }
