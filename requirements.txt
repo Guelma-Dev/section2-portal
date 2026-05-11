@@ -4,5 +4,6 @@ pyTelegramBotAPI
 python-dotenv
 cloudinary
 psycopg2-binary
+openai
 groq
 google-generativeai

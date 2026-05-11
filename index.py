@@ -8,6 +8,7 @@ from flask import Flask, render_template, jsonify, request, send_from_directory
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from openai import OpenAI
 from groq import Groq
 import google.generativeai as genai
 
@@ -38,6 +39,7 @@ bot = telebot.TeleBot(BOT_TOKEN) if BOT_TOKEN else None
 
 GROQ_KEY = os.getenv("GROQ_API_KEY")
 GEMINI_KEY = os.getenv("GEMINI_API_KEY")
+DEEPSEEK_KEY = os.getenv("DEEPSEEK_API_KEY")
 
 SUBJECTS = [
     "اقتصاد المؤسسة",
@@ -490,7 +492,25 @@ def api_chat():
         portal_info += f" جدول الامتحانات: {exams_info}."
     sys_msg = f"أنت مساعد ذكي ومفيد اسمك بوت. تجيب بإجابات مفصلة ومنطقية بالعربية الفصحى. إذا سُئلت عن مواد أو امتحانات الموقع، استخدم معلوماتك: {portal_info} وإلا جاوب بشكل طبيعي عن أي موضوع."
 
-    # Try Gemini (multiple models)
+    # 1. DeepSeek (primary — strongest)
+    if DEEPSEEK_KEY:
+        ds = OpenAI(api_key=DEEPSEEK_KEY, base_url="https://api.deepseek.com/v1")
+        try:
+            r = ds.chat.completions.create(
+                model="deepseek-chat",
+                messages=[{"role":"system","content":sys_msg},{"role":"user","content":orig}],
+                max_tokens=1000,
+                temperature=0.7,
+                timeout=30
+            )
+            text = r.choices[0].message.content.strip()
+            if text:
+                logger.info(f"DeepSeek OK: {text[:60]}...")
+                return jsonify({"reply": text})
+        except Exception as e:
+            logger.warning(f"DeepSeek error: {str(e)[:200]}")
+
+    # 2. Gemini (fallback — good Arabic)
     if GEMINI_KEY:
         genai.configure(api_key=GEMINI_KEY)
         for gemini_model_name in ["gemini-1.5-pro", "gemini-2.0-flash", "gemini-1.5-flash"]:
@@ -504,17 +524,14 @@ def api_chat():
             except Exception as e:
                 logger.warning(f"Gemini {gemini_model_name} error: {str(e)[:200]}")
 
-    # Fallback: Groq
+    # 3. Groq (last resort)
     if GROQ_KEY:
         client = Groq(api_key=GROQ_KEY)
         for model in ["qwen-2.5-32b", "llama3-70b-8192", "mixtral-8x7b-32768", "llama-3.1-8b-instant"]:
             try:
                 response = client.chat.completions.create(
                     model=model,
-                    messages=[
-                        {"role": "system", "content": sys_msg},
-                        {"role": "user", "content": orig}
-                    ],
+                    messages=[{"role":"system","content":sys_msg},{"role":"user","content":orig}],
                     max_tokens=800,
                     temperature=0.7
                 )
@@ -616,12 +633,11 @@ def webhook():
 
 @app.route("/api/ai-status")
 def ai_status():
-    groq_preview = GROQ_KEY[:15] + "..." if GROQ_KEY else None
-    gemini_preview = GEMINI_KEY[:15] + "..." if GEMINI_KEY else None
     return jsonify({
-        "groq": {"key_set": bool(GROQ_KEY), "key_preview": groq_preview},
-        "gemini": {"key_set": bool(GEMINI_KEY), "key_preview": gemini_preview},
-        "active_provider": "groq" if GROQ_KEY else "gemini" if GEMINI_KEY else "none"
+        "deepseek": {"key_set": bool(DEEPSEEK_KEY)},
+        "gemini": {"key_set": bool(GEMINI_KEY)},
+        "groq": {"key_set": bool(GROQ_KEY)},
+        "order": ["deepseek", "gemini", "groq", "rule-based"]
     })
 
 
