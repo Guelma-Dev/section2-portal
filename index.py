@@ -8,6 +8,7 @@ from flask import Flask, render_template, jsonify, request, send_from_directory
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+import requests
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -16,8 +17,6 @@ import cloudinary.uploader
 import cloudinary.utils
 import psycopg2
 from psycopg2.extras import RealDictCursor
-import urllib.request
-import urllib.error
 
 load_dotenv()
 
@@ -504,39 +503,33 @@ def api_chat():
         last_err = ""
         for model in GROQ_MODELS:
             try:
-                body = json.dumps({
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "max_tokens": 400,
-                    "temperature": 0.7
-                }).encode()
-                req = urllib.request.Request(
+                resp = requests.post(
                     "https://api.groq.com/openai/v1/chat/completions",
-                    data=body,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {GROQ_KEY}"
+                    json={
+                        "model": model,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": 400,
+                        "temperature": 0.7
                     },
-                    method="POST"
+                    headers={"Authorization": f"Bearer {GROQ_KEY}"},
+                    timeout=20
                 )
-                resp = urllib.request.urlopen(req, timeout=15)
-                result = json.loads(resp.read())
+                if resp.status_code != 200:
+                    last_err = f"Groq {model} HTTP {resp.status_code}: {resp.text[:200]}"
+                    logger.warning(last_err)
+                    continue
+                result = resp.json()
                 text = result["choices"][0]["message"]["content"].strip()
                 if text:
                     logger.info(f"Groq ({model}) OK: {text[:60]}...")
                     return jsonify({"reply": text})
                 else:
                     logger.warning(f"Groq ({model}) empty text")
-            except urllib.error.HTTPError as e2:
-                body_err = e2.read().decode()[:300]
-                last_err = f"Groq {model} HTTP {e2.code}: {body_err}"
-                logger.warning(last_err)
             except Exception as e2:
-                last_err = f"Groq {model} error: {str(e2)[:200]}"
+                last_err = f"Groq {model} error: {str(e2)[:300]}"
                 logger.warning(last_err)
         if last_err:
             logger.warning(f"All Groq models failed: {last_err}")
-            return jsonify({"reply": f"⚠️ Groq API مشكلة: {last_err}"})
 
     # ── Fallback: rule-based ──
     subj_map = {
