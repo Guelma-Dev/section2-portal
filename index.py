@@ -10,6 +10,7 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from openai import OpenAI
 from groq import Groq
+import requests
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -513,9 +514,8 @@ def api_chat():
     if GEMINI_KEY:
         for model in ["gemini-2.0-flash", "gemini-1.5-flash"]:
             try:
-                import requests as req
                 payload = {"contents":[{"parts":[{"text":f"{sys_msg}\n\nالطالب: {orig}\nالرد:"}]}],"generationConfig":{"maxOutputTokens":800,"temperature":0.7}}
-                r = req.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_KEY}", json=payload, timeout=20)
+                r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_KEY}", json=payload, timeout=20)
                 if r.status_code == 200:
                     candidates = r.json().get("candidates", [])
                     if candidates:
@@ -525,9 +525,6 @@ def api_chat():
                             return jsonify({"reply": text})
             except Exception as e:
                 logger.warning(f"Gemini {model} error: {str(e)[:200]}")
-                    return jsonify({"reply": text})
-            except Exception as e:
-                logger.warning(f"Gemini {gemini_model_name} error: {str(e)[:200]}")
 
     # 3. Groq (last resort)
     if GROQ_KEY:
