@@ -484,24 +484,23 @@ def api_chat():
     # Try Groq on-demand
     if GROQ_KEY:
         client = Groq(api_key=GROQ_KEY)
-        sys_msg = "أنت بوت دردشة طبيعي. اسمك بوت. تتحدث بالعربية. ودود ومرح واجتماعي. تتكلم عن أي موضوع."
+        sys_msg = "أنت بوت دردشة ودود. اسمك بوت. تجيب بالعامية أو الفصحى. طبيعي وعفوي."
         if SUBJECTS:
-            sys_msg += f" عندك معلومات عن موقع القسم: المواد ({', '.join(SUBJECTS)}) وملفات Cours/TD/TP/Summary."
+            sys_msg += f"\n\nمعلومات عن موقع القسم: المواد ({', '.join(SUBJECTS)})، ملفات Cours/TD/TP/Summary."
         exams_info = "; ".join([f"{e['subject']}: {e['date']} {e['time']} ({e['session']})" for e in EXAMS]) if EXAMS else ""
         if exams_info:
             sys_msg += f" جدول الامتحانات: {exams_info}."
-        prompt = f"""{sys_msg}
-
-الطالب: {orig}
-الرد:"""
         models_to_try = ["llama3-70b-8192", "mixtral-8x7b-32768", "llama-3.1-8b-instant", "llama3-8b-8192"]
         for model in models_to_try:
             try:
                 response = client.chat.completions.create(
                     model=model,
-                    messages=[{"role": "user", "content": prompt}],
+                    messages=[
+                        {"role": "system", "content": sys_msg},
+                        {"role": "user", "content": orig}
+                    ],
                     max_tokens=500,
-                    temperature=0.9
+                    temperature=0.7
                 )
                 text = response.choices[0].message.content.strip()
                 if text:
