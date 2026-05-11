@@ -503,19 +503,20 @@ def api_chat():
         last_err = ""
         for model in GROQ_MODELS:
             try:
+                logger.info(f"Trying Groq model: {model}")
                 resp = requests.post(
                     "https://api.groq.com/openai/v1/chat/completions",
                     json={
                         "model": model,
-                        "messages": [{"role": "user", "content": prompt}],
-                        "max_tokens": 400,
+                        "messages": [{"role": "user", "content": prompt[:1000]}],
+                        "max_tokens": 200,
                         "temperature": 0.7
                     },
                     headers={"Authorization": f"Bearer {GROQ_KEY}"},
                     timeout=20
                 )
                 if resp.status_code != 200:
-                    last_err = f"Groq {model} HTTP {resp.status_code}: {resp.text[:200]}"
+                    last_err = f"Groq {model} HTTP {resp.status_code}: {resp.text[:300]}"
                     logger.warning(last_err)
                     continue
                 result = resp.json()
@@ -525,6 +526,12 @@ def api_chat():
                     return jsonify({"reply": text})
                 else:
                     logger.warning(f"Groq ({model}) empty text")
+            except requests.exceptions.Timeout:
+                last_err = f"Groq {model} timeout"
+                logger.warning(last_err)
+            except requests.exceptions.ConnectionError as e2:
+                last_err = f"Groq {model} connection error: {str(e2)[:200]}"
+                logger.warning(last_err)
             except Exception as e2:
                 last_err = f"Groq {model} error: {str(e2)[:300]}"
                 logger.warning(last_err)
