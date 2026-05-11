@@ -10,7 +10,6 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from openai import OpenAI
 from groq import Groq
-import google.generativeai as genai
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -510,16 +509,22 @@ def api_chat():
         except Exception as e:
             logger.warning(f"DeepSeek error: {str(e)[:200]}")
 
-    # 2. Gemini (fallback — good Arabic)
+    # 2. Gemini (fallback — good Arabic, direct HTTP)
     if GEMINI_KEY:
-        genai.configure(api_key=GEMINI_KEY)
-        for gemini_model_name in ["gemini-1.5-pro", "gemini-2.0-flash", "gemini-1.5-flash"]:
+        for model in ["gemini-2.0-flash", "gemini-1.5-flash"]:
             try:
-                m = genai.GenerativeModel(gemini_model_name, system_instruction=sys_msg)
-                resp = m.generate_content(orig)
-                if resp and resp.text:
-                    text = resp.text.strip()
-                    logger.info(f"Gemini {gemini_model_name} OK: {text[:60]}...")
+                import requests as req
+                payload = {"contents":[{"parts":[{"text":f"{sys_msg}\n\nالطالب: {orig}\nالرد:"}]}],"generationConfig":{"maxOutputTokens":800,"temperature":0.7}}
+                r = req.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={GEMINI_KEY}", json=payload, timeout=20)
+                if r.status_code == 200:
+                    candidates = r.json().get("candidates", [])
+                    if candidates:
+                        text = candidates[0].get("content",{}).get("parts",[{}])[0].get("text","").strip()
+                        if text:
+                            logger.info(f"Gemini {model} OK: {text[:60]}...")
+                            return jsonify({"reply": text})
+            except Exception as e:
+                logger.warning(f"Gemini {model} error: {str(e)[:200]}")
                     return jsonify({"reply": text})
             except Exception as e:
                 logger.warning(f"Gemini {gemini_model_name} error: {str(e)[:200]}")
