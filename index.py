@@ -481,16 +481,31 @@ def api_chat():
     orig = msg
     msg_lower = msg.lower()
 
-    # Try Groq on-demand
+    sys_msg = "أنت صديق اسمه بوت. ردودك قصيرة وعفوية. تستخدم العامية. ما تتكلف في الكلام."
+    if SUBJECTS:
+        sys_msg += f"\n\nتعرف موقع القسم: مواد ({', '.join(SUBJECTS)})، جدول امتحانات، ملفات Cours/TD/TP/Summary."
+    exams_info = "; ".join([f"{e['subject']}: {e['date']} {e['time']} ({e['session']})" for e in EXAMS]) if EXAMS else ""
+    if exams_info:
+        sys_msg += f"\nالامتحانات: {exams_info}."
+    sys_msg += "\n\nاذا سالك عن ماده او امتحان جاوب بمعلوماتك. اذا سالك عن شي ثاني جاوب عادي."
+
+    # Try Gemini first (best Arabic support)
+    if GEMINI_KEY:
+        try:
+            genai.configure(api_key=GEMINI_KEY)
+            gemini_model = genai.GenerativeModel("gemini-2.0-flash", system_instruction=sys_msg)
+            resp = gemini_model.generate_content(orig)
+            if resp and resp.text:
+                text = resp.text.strip()
+                logger.info(f"Gemini OK: {text[:60]}...")
+                return jsonify({"reply": text})
+        except Exception as e:
+            logger.warning(f"Gemini error: {str(e)[:200]}")
+
+    # Fallback: Groq
     if GROQ_KEY:
         client = Groq(api_key=GROQ_KEY)
-        sys_msg = "أنت بوت دردشة ودود. اسمك بوت. تجيب بالعامية أو الفصحى. طبيعي وعفوي."
-        if SUBJECTS:
-            sys_msg += f"\n\nمعلومات عن موقع القسم: المواد ({', '.join(SUBJECTS)})، ملفات Cours/TD/TP/Summary."
-        exams_info = "; ".join([f"{e['subject']}: {e['date']} {e['time']} ({e['session']})" for e in EXAMS]) if EXAMS else ""
-        if exams_info:
-            sys_msg += f" جدول الامتحانات: {exams_info}."
-        models_to_try = ["llama3-70b-8192", "mixtral-8x7b-32768", "llama-3.1-8b-instant", "llama3-8b-8192"]
+        models_to_try = ["llama3-70b-8192", "mixtral-8x7b-32768", "llama-3.1-8b-instant"]
         for model in models_to_try:
             try:
                 response = client.chat.completions.create(
@@ -509,19 +524,6 @@ def api_chat():
             except Exception as e:
                 logger.warning(f"Groq ({model}) error: {str(e)[:200]}")
                 continue
-
-    # ── Fallback: Gemini (if Groq fails or no Groq key) ──
-    if GEMINI_KEY:
-        try:
-            genai.configure(api_key=GEMINI_KEY)
-            model = genai.GenerativeModel("gemini-2.0-flash")
-            gemini_prompt = f"أنت بوت دردشة طبيعي اسمك بوت. ودود ومرح. أجب بالعربية.\nالطالب: {orig}\nالرد:"
-            resp = model.generate_content(gemini_prompt)
-            if resp and resp.text:
-                logger.info(f"Gemini OK: {resp.text[:60]}...")
-                return jsonify({"reply": resp.text.strip()})
-        except Exception as e:
-            logger.warning(f"Gemini error: {str(e)[:200]}")
 
     # ── Fallback: rule-based ──
     subj_map = {
