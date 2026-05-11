@@ -481,32 +481,33 @@ def api_chat():
     orig = msg
     msg_lower = msg.lower()
 
-    sys_msg = "أنت صديق اسمه بوت. ردودك قصيرة وعفوية. تستخدم العامية. ما تتكلف في الكلام."
+    # Build portal context
+    portal_info = ""
     if SUBJECTS:
-        sys_msg += f"\n\nتعرف موقع القسم: مواد ({', '.join(SUBJECTS)})، جدول امتحانات، ملفات Cours/TD/TP/Summary."
+        portal_info += f"الموقع فيه مواد: {', '.join(SUBJECTS)}، وملفات Cours/TD/TP/Summary."
     exams_info = "; ".join([f"{e['subject']}: {e['date']} {e['time']} ({e['session']})" for e in EXAMS]) if EXAMS else ""
     if exams_info:
-        sys_msg += f"\nالامتحانات: {exams_info}."
-    sys_msg += "\n\nاذا سالك عن ماده او امتحان جاوب بمعلوماتك. اذا سالك عن شي ثاني جاوب عادي."
+        portal_info += f" جدول الامتحانات: {exams_info}."
+    sys_msg = f"أنت مساعد ذكي ومفيد اسمك بوت. تجيب بإجابات مفصلة ومنطقية بالعربية الفصحى. إذا سُئلت عن مواد أو امتحانات الموقع، استخدم معلوماتك: {portal_info} وإلا جاوب بشكل طبيعي عن أي موضوع."
 
-    # Try Gemini first (best Arabic support)
+    # Try Gemini (multiple models)
     if GEMINI_KEY:
-        try:
-            genai.configure(api_key=GEMINI_KEY)
-            gemini_model = genai.GenerativeModel("gemini-2.0-flash", system_instruction=sys_msg)
-            resp = gemini_model.generate_content(orig)
-            if resp and resp.text:
-                text = resp.text.strip()
-                logger.info(f"Gemini OK: {text[:60]}...")
-                return jsonify({"reply": text})
-        except Exception as e:
-            logger.warning(f"Gemini error: {str(e)[:200]}")
+        genai.configure(api_key=GEMINI_KEY)
+        for gemini_model_name in ["gemini-1.5-pro", "gemini-2.0-flash", "gemini-1.5-flash"]:
+            try:
+                m = genai.GenerativeModel(gemini_model_name, system_instruction=sys_msg)
+                resp = m.generate_content(orig)
+                if resp and resp.text:
+                    text = resp.text.strip()
+                    logger.info(f"Gemini {gemini_model_name} OK: {text[:60]}...")
+                    return jsonify({"reply": text})
+            except Exception as e:
+                logger.warning(f"Gemini {gemini_model_name} error: {str(e)[:200]}")
 
     # Fallback: Groq
     if GROQ_KEY:
         client = Groq(api_key=GROQ_KEY)
-        models_to_try = ["llama3-70b-8192", "mixtral-8x7b-32768", "llama-3.1-8b-instant"]
-        for model in models_to_try:
+        for model in ["qwen-2.5-32b", "llama3-70b-8192", "mixtral-8x7b-32768", "llama-3.1-8b-instant"]:
             try:
                 response = client.chat.completions.create(
                     model=model,
@@ -514,7 +515,7 @@ def api_chat():
                         {"role": "system", "content": sys_msg},
                         {"role": "user", "content": orig}
                     ],
-                    max_tokens=500,
+                    max_tokens=800,
                     temperature=0.7
                 )
                 text = response.choices[0].message.content.strip()
