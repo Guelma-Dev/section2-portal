@@ -4,4 +4,4 @@ pyTelegramBotAPI
 python-dotenv
 cloudinary
 psycopg2-binary
-requests
+groq

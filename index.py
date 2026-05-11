@@ -8,7 +8,7 @@ from flask import Flask, render_template, jsonify, request, send_from_directory
 from dotenv import load_dotenv
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
-import requests
+from groq import Groq
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
@@ -484,8 +484,8 @@ def api_chat():
     exams_list = "\n".join([f"- {e['subject']}: {e['date']} الساعة {e['time']} ({e['session']})" for e in EXAMS])
 
     # Try Groq on-demand
-    GROQ_MODELS = ["llama-3.1-8b-instant", "llama3-8b-8192", "mixtral-8x7b-32768", "gemma2-9b-it"]
     if GROQ_KEY:
+        client = Groq(api_key=GROQ_KEY)
         prompt = f"""أنت مساعد ذكي لموقع أكاديمي لقسم جامعي. أجب بالعربية فقط وبشكل مختصر ومفيد.
 
 معلومات الموقع:
@@ -500,43 +500,22 @@ def api_chat():
 سؤال الطالب: {orig}
 
 أجب بشكل طبيعي ومختصر (جملتين لأربع جمل). إذا سأل عن شرح أو تلخيص، قدم شرح مختصر مفيد."""
-        last_err = ""
-        for model in GROQ_MODELS:
+        models_to_try = ["llama-3.1-8b-instant", "llama3-8b-8192", "mixtral-8x7b-32768"]
+        for model in models_to_try:
             try:
-                logger.info(f"Trying Groq model: {model}")
-                resp = requests.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    json={
-                        "model": model,
-                        "messages": [{"role": "user", "content": prompt[:1000]}],
-                        "max_tokens": 200,
-                        "temperature": 0.7
-                    },
-                    headers={"Authorization": f"Bearer {GROQ_KEY}"},
-                    timeout=20
+                response = client.chat.completions.create(
+                    model=model,
+                    messages=[{"role": "user", "content": prompt}],
+                    max_tokens=400,
+                    temperature=0.7
                 )
-                if resp.status_code != 200:
-                    last_err = f"Groq {model} HTTP {resp.status_code}: {resp.text[:300]}"
-                    logger.warning(last_err)
-                    continue
-                result = resp.json()
-                text = result["choices"][0]["message"]["content"].strip()
+                text = response.choices[0].message.content.strip()
                 if text:
                     logger.info(f"Groq ({model}) OK: {text[:60]}...")
                     return jsonify({"reply": text})
-                else:
-                    logger.warning(f"Groq ({model}) empty text")
-            except requests.exceptions.Timeout:
-                last_err = f"Groq {model} timeout"
-                logger.warning(last_err)
-            except requests.exceptions.ConnectionError as e2:
-                last_err = f"Groq {model} connection error: {str(e2)[:200]}"
-                logger.warning(last_err)
-            except Exception as e2:
-                last_err = f"Groq {model} error: {str(e2)[:300]}"
-                logger.warning(last_err)
-        if last_err:
-            logger.warning(f"All Groq models failed: {last_err}")
+            except Exception as e:
+                logger.warning(f"Groq ({model}) error: {str(e)[:200]}")
+                continue
 
     # ── Fallback: rule-based ──
     subj_map = {
