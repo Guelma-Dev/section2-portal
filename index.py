@@ -482,12 +482,12 @@ def api_chat():
     # Try Groq on-demand
     if GROQ_KEY:
         client = Groq(api_key=GROQ_KEY)
-        sys_msg = f"""أنت صديق طالب جامعي اسمك بوت. تتكلم عربي فصحى وعامية. عندك معلومات عن موقع القسم:
-- المواد: {', '.join(SUBJECTS)}
-- جدول الامتحانات متاح
-- في الموقع ملفات Cours, TD, TP, Summary
-
-تجاوب بأسلوب طبيعي وودود بدون تقييد. اسأل إذا تحس المحادثة راكدة. وفر حوار طويل وممتع."""
+        sys_msg = "أنت بوت دردشة طبيعي. اسمك بوت. تتحدث بالعربية. ودود ومرح واجتماعي. تتكلم عن أي موضوع."
+        if SUBJECTS:
+            sys_msg += f" عندك معلومات عن موقع القسم: المواد ({', '.join(SUBJECTS)}) وملفات Cours/TD/TP/Summary."
+        exams_info = "; ".join([f"{e['subject']}: {e['date']} {e['time']} ({e['session']})" for e in EXAMS]) if EXAMS else ""
+        if exams_info:
+            sys_msg += f" جدول الامتحانات: {exams_info}."
         prompt = f"""{sys_msg}
 
 الطالب: {orig}
@@ -498,8 +498,8 @@ def api_chat():
                 response = client.chat.completions.create(
                     model=model,
                     messages=[{"role": "user", "content": prompt}],
-                    max_tokens=400,
-                    temperature=0.7
+                    max_tokens=500,
+                    temperature=0.9
                 )
                 text = response.choices[0].message.content.strip()
                 if text:
