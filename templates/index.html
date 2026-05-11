@@ -236,7 +236,7 @@
       setTimeout(() => html.classList.remove('dark-transition'), 400);
     });
     document.getElementById('dark-toggle').textContent = document.documentElement.classList.contains('dark') ? '🌙' : '☀️';
-    applyLang(currentLang);
+    try { applyLang(currentLang); } catch(e) { console.error(e); }
 
     /* ── Color Theme ── */
     const THEMES = [
@@ -346,8 +346,8 @@
       document.getElementById('scroll-top').title = t.scrollTop;
       const ft = document.getElementById('footer-text');
       if (ft) ft.textContent = t.footer;
-      renderCards();
-      renderExams('all');
+      try { renderCards(); } catch(e) { console.error(e); }
+      try { renderExams('all'); } catch(e) { console.error(e); }
     }
     document.getElementById('lang-toggle').onclick = () => {
       const langs = ['ar','en','fr'];
