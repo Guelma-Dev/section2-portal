@@ -1,7 +1,7 @@
 {
   "name": "Section 2 - Groupe 12",
-  "short_name": "S2G12 Portal",
-  "description": "الموارد الأكاديمية والملفات الدراسية",
+  "short_name": "S2G12",
+  "description": "الموارد الأكاديمية والملفات الدراسية - جامعة 8 ماي 1945 قالمة",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#4f46e5",
@@ -9,8 +9,10 @@
   "orientation": "portrait",
   "lang": "ar",
   "dir": "rtl",
+  "categories": ["education", "academic"],
   "icons": [
-    {"src": "/static/icon.svg", "sizes": "192x192", "type": "image/svg+xml"},
-    {"src": "/static/icon.svg", "sizes": "512x512", "type": "image/svg+xml"}
+    {"src": "/static/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "/static/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
   ]
 }

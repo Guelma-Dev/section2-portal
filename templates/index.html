@@ -6,9 +6,12 @@
   <meta name="theme-color" content="#4f46e5">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="S2G12">
   <link rel="manifest" href="/static/manifest.json">
   <link rel="icon" href="/static/icon.svg" type="image/svg+xml">
-  <link rel="apple-touch-icon" href="/static/icon.svg">
+  <link rel="icon" href="/static/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="/static/icon-180.png">
+  <link rel="apple-touch-startup-image" href="/static/icon-512.png" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2)">
   <title>Section 2 - Groupe 12 | Portal</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -660,7 +663,12 @@
     chatSend.onclick = ask;
     chatInput.onkeydown = e => { if (e.key === 'Enter') ask(); };
 
-    if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js');
+      let deferredPrompt;
+      window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; });
+      window.addEventListener('appinstalled', () => { console.log('PWA installed'); });
+    }
 
     document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
     renderExams('all');
