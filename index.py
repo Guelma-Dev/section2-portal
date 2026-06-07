@@ -663,6 +663,49 @@ def api_download(file_id):
     return jsonify({"downloads": row["downloads"] if row else 0})
 
 
+@app.route("/api/restore", methods=["POST"])
+def api_restore():
+    try:
+        result = cloudinary.api.resources(max_results=500)
+        files = result.get("resources", [])
+        restored = 0
+        conn = get_db()
+        c = conn.cursor()
+        for r in files:
+            pid = r["public_id"]
+            # Extract subject from folder (first part before /)
+            if "/" not in pid:
+                continue
+            subject, fname = pid.split("/", 1)
+            if subject not in SUBJECTS:
+                continue
+            # Extract original filename (after timestamp_)
+            if "_" in fname:
+                orig = fname.split("_", 1)[1]
+            else:
+                orig = fname
+            # Guess category from filename
+            low = orig.lower()
+            cat = "Cours"
+            if any(k in low for k in ["td", "tp", "t.d", "t.p", "تمارين", "اعمال"]):
+                cat = "TD"
+            if low.startswith("tp") or "tp " in low or " t.p" in low:
+                cat = "TP"
+            if any(k in low for k in ["summary", "ملخص", "تلخيص"]):
+                cat = "Summary"
+            url = r["secure_url"]
+            rt = r.get("resource_type", "raw")
+            c.execute(q("SELECT id FROM files WHERE cloudinary_public_id = ?"), (pid,))
+            if not c.fetchone():
+                c.execute(q("INSERT INTO files (subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?)"), (subject, cat, orig, url, pid, rt, r.get("created_at", datetime.now().isoformat())))
+                restored += 1
+        conn.commit()
+        conn.close()
+        return jsonify({"restored": restored, "total": len(files)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 try:
     init_db()
     logger.info("Database initialized")
