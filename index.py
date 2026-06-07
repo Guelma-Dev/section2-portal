@@ -663,7 +663,7 @@ def api_download(file_id):
     return jsonify({"downloads": row["downloads"] if row else 0})
 
 
-@app.route("/api/restore", methods=["POST"])
+@app.route("/api/restore", methods=["GET", "POST"])
 def api_restore():
     try:
         result = cloudinary.api.resources(max_results=500)
