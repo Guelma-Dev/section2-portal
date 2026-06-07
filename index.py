@@ -16,9 +16,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 logger = logging.getLogger(__name__)
 import cloudinary
 import cloudinary.uploader
-import cloudinary.utils
-import psycopg2
-from psycopg2.extras import RealDictCursor
+import sqlite3
 
 load_dotenv()
 
@@ -69,60 +67,36 @@ EXAMS = [
 
 
 def get_db():
-    return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
+    db_path = os.path.join(BASE_DIR, "portal.db")
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    return conn
 
 
 def init_db():
     conn = get_db()
     c = conn.cursor()
-    c.execute("""
+    c.executescript("""
         CREATE TABLE IF NOT EXISTS files (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             subject TEXT NOT NULL,
             category TEXT NOT NULL,
             original_filename TEXT NOT NULL,
             cloudinary_url TEXT NOT NULL,
             cloudinary_public_id TEXT NOT NULL,
             resource_type TEXT DEFAULT 'raw',
-            uploaded_at TEXT NOT NULL
-        )
-    """)
-    c.execute("""
+            uploaded_at TEXT NOT NULL,
+            downloads INTEGER DEFAULT 0
+        );
         CREATE TABLE IF NOT EXISTS announcements (
-            id SERIAL PRIMARY KEY,
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
             content TEXT NOT NULL,
-            enabled BOOLEAN DEFAULT TRUE,
+            enabled INTEGER DEFAULT 1,
             created_at TEXT NOT NULL
-        )
+        );
     """)
-    try:
-        c.execute("ALTER TABLE files ADD COLUMN IF NOT EXISTS downloads INTEGER DEFAULT 0")
-    except:
-        pass
     conn.commit()
-    conn.close()
-
-
-def migrate_old_urls():
-    conn = get_db()
-    c = conn.cursor()
-    c.execute("SELECT id, cloudinary_url, cloudinary_public_id, resource_type FROM files")
-    rows = c.fetchall()
-    for row in rows:
-        url = row["cloudinary_url"]
-        needs_fix = False
-        if "/s--" in url:
-            needs_fix = True
-            url = re.sub(r'/s--[^/]+--/', '/', url)
-        if "/v1/" in url:
-            fixed = cloudinary.utils.cloudinary_url(row["cloudinary_public_id"], resource_type=row["resource_type"], secure=True, force_version=False)[0]
-            if fixed != url:
-                url = fixed
-                needs_fix = True
-        if needs_fix:
-            c.execute("UPDATE files SET cloudinary_url = %s WHERE id = %s", (url, row["id"]))
-    if rows:
-        conn.commit()
     conn.close()
 
 
@@ -130,7 +104,7 @@ def save_file_record(subject, category, original_name, cloudinary_url, cloudinar
     conn = get_db()
     c = conn.cursor()
     c.execute(
-        "INSERT INTO files (subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type, uploaded_at) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        "INSERT INTO files (subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
         (subject, category, original_name, cloudinary_url, cloudinary_public_id, resource_type, datetime.now().isoformat()),
     )
     conn.commit()
@@ -165,7 +139,7 @@ def get_files_by_subject():
 def get_recent_files(limit=20):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, subject, category, original_filename, cloudinary_url, cloudinary_public_id, uploaded_at FROM files ORDER BY uploaded_at DESC LIMIT %s", (limit,))
+    c.execute("SELECT id, subject, category, original_filename, cloudinary_url, cloudinary_public_id, uploaded_at FROM files ORDER BY uploaded_at DESC LIMIT ?", (limit,))
     rows = c.fetchall()
     conn.close()
     return [(r["id"], r["subject"], r["category"], r["original_filename"], r["cloudinary_url"], r["uploaded_at"]) for r in rows]
@@ -174,13 +148,13 @@ def get_recent_files(limit=20):
 def delete_file_record(file_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT cloudinary_public_id, resource_type, subject FROM files WHERE id = %s", (file_id,))
+    c.execute("SELECT cloudinary_public_id, resource_type, subject FROM files WHERE id = ?", (file_id,))
     row = c.fetchone()
     if row:
         public_id = row["cloudinary_public_id"]
         resource_type = row["resource_type"]
         subject = row["subject"]
-        c.execute("DELETE FROM files WHERE id = %s", (file_id,))
+        c.execute("DELETE FROM files WHERE id = ?", (file_id,))
         conn.commit()
         conn.close()
         try:
@@ -203,7 +177,7 @@ def sanitize_filename(name):
 def get_files_by_subject_and_subject(subject):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, original_filename, category FROM files WHERE subject = %s ORDER BY uploaded_at DESC", (subject,))
+    c.execute("SELECT id, original_filename, category FROM files WHERE subject = ? ORDER BY uploaded_at DESC", (subject,))
     rows = c.fetchall()
     conn.close()
     return rows
@@ -212,7 +186,7 @@ def get_files_by_subject_and_subject(subject):
 def add_announcement(content):
     conn = get_db()
     c = conn.cursor()
-    c.execute("INSERT INTO announcements (content, enabled, created_at) VALUES (%s, TRUE, %s)", (content, datetime.now().isoformat()))
+    c.execute("INSERT INTO announcements (content, enabled, created_at) VALUES (?, 1, ?)", (content, datetime.now().isoformat()))
     conn.commit()
     conn.close()
 
@@ -220,7 +194,7 @@ def add_announcement(content):
 def delete_announcement(aid):
     conn = get_db()
     c = conn.cursor()
-    c.execute("DELETE FROM announcements WHERE id = %s", (aid,))
+    c.execute("DELETE FROM announcements WHERE id = ?", (aid,))
     conn.commit()
     conn.close()
 
@@ -228,7 +202,7 @@ def delete_announcement(aid):
 def get_announcements():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, content FROM announcements WHERE enabled = TRUE ORDER BY id DESC")
+    c.execute("SELECT id, content FROM announcements WHERE enabled = 1 ORDER BY id DESC")
     rows = c.fetchall()
     conn.close()
     return rows
@@ -253,7 +227,7 @@ def api_files():
 def api_announcements():
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT content FROM announcements WHERE enabled = TRUE ORDER BY id DESC")
+    c.execute("SELECT content FROM announcements WHERE enabled = 1 ORDER BY id DESC")
     rows = c.fetchall()
     conn.close()
     return jsonify([r["content"] for r in rows])
@@ -647,20 +621,21 @@ def ai_status():
 def api_download(file_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("UPDATE files SET downloads = COALESCE(downloads, 0) + 1 WHERE id = %s RETURNING downloads", (file_id,))
+    c.execute("UPDATE files SET downloads = COALESCE(downloads, 0) + 1 WHERE id = ?", (file_id,))
+    c.execute("SELECT downloads FROM files WHERE id = ?", (file_id,))
     row = c.fetchone()
     conn.commit()
     conn.close()
     return jsonify({"downloads": row["downloads"] if row else 0})
 
 
+try:
+    init_db()
+    logger.info("Database initialized")
+except Exception as e:
+    logger.error(f"init_db failed: {e}")
+
 if __name__ == "__main__":
-    try:
-        init_db()
-        migrate_old_urls()
-    except Exception as e:
-        logger.error(f"init_db failed: {e}")
-        raise
     port = int(os.getenv("PORT", 5000))
     if bot and ADMIN_ID:
         webhook_url = (os.getenv("RENDER_EXTERNAL_URL") or f"http://localhost:{port}").rstrip("/")
