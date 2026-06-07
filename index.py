@@ -17,6 +17,8 @@ logger = logging.getLogger(__name__)
 import cloudinary
 import cloudinary.uploader
 import sqlite3
+import psycopg2
+from psycopg2.extras import RealDictCursor
 
 load_dotenv()
 
@@ -66,7 +68,11 @@ EXAMS = [
 ]
 
 
+USE_PG = bool(DATABASE_URL)
+
 def get_db():
+    if USE_PG:
+        return psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     db_path = os.path.join(BASE_DIR, "portal.db")
     conn = sqlite3.connect(db_path)
     conn.row_factory = sqlite3.Row
@@ -74,28 +80,56 @@ def get_db():
     return conn
 
 
+def q(sql):
+    """Convert ? placeholders to %s for PostgreSQL."""
+    return sql.replace('?', '%s') if USE_PG else sql
+
+
 def init_db():
     conn = get_db()
     c = conn.cursor()
-    c.executescript("""
-        CREATE TABLE IF NOT EXISTS files (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            subject TEXT NOT NULL,
-            category TEXT NOT NULL,
-            original_filename TEXT NOT NULL,
-            cloudinary_url TEXT NOT NULL,
-            cloudinary_public_id TEXT NOT NULL,
-            resource_type TEXT DEFAULT 'raw',
-            uploaded_at TEXT NOT NULL,
-            downloads INTEGER DEFAULT 0
-        );
-        CREATE TABLE IF NOT EXISTS announcements (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            content TEXT NOT NULL,
-            enabled INTEGER DEFAULT 1,
-            created_at TEXT NOT NULL
-        );
-    """)
+    if USE_PG:
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS files (
+                id SERIAL PRIMARY KEY,
+                subject TEXT NOT NULL,
+                category TEXT NOT NULL,
+                original_filename TEXT NOT NULL,
+                cloudinary_url TEXT NOT NULL,
+                cloudinary_public_id TEXT NOT NULL,
+                resource_type TEXT DEFAULT 'raw',
+                uploaded_at TEXT NOT NULL,
+                downloads INTEGER DEFAULT 0
+            )
+        """)
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS announcements (
+                id SERIAL PRIMARY KEY,
+                content TEXT NOT NULL,
+                enabled INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL
+            )
+        """)
+    else:
+        c.executescript("""
+            CREATE TABLE IF NOT EXISTS files (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                subject TEXT NOT NULL,
+                category TEXT NOT NULL,
+                original_filename TEXT NOT NULL,
+                cloudinary_url TEXT NOT NULL,
+                cloudinary_public_id TEXT NOT NULL,
+                resource_type TEXT DEFAULT 'raw',
+                uploaded_at TEXT NOT NULL,
+                downloads INTEGER DEFAULT 0
+            );
+            CREATE TABLE IF NOT EXISTS announcements (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                content TEXT NOT NULL,
+                enabled INTEGER DEFAULT 1,
+                created_at TEXT NOT NULL
+            );
+        """)
     conn.commit()
     conn.close()
 
@@ -103,8 +137,8 @@ def init_db():
 def save_file_record(subject, category, original_name, cloudinary_url, cloudinary_public_id, resource_type):
     conn = get_db()
     c = conn.cursor()
-    c.execute(
-        "INSERT INTO files (subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+    c.execute(q(
+        "INSERT INTO files (subject, category, original_filename, cloudinary_url, cloudinary_public_id, resource_type, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?)"),
         (subject, category, original_name, cloudinary_url, cloudinary_public_id, resource_type, datetime.now().isoformat()),
     )
     conn.commit()
@@ -139,7 +173,7 @@ def get_files_by_subject():
 def get_recent_files(limit=20):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, subject, category, original_filename, cloudinary_url, cloudinary_public_id, uploaded_at FROM files ORDER BY uploaded_at DESC LIMIT ?", (limit,))
+    c.execute(q("SELECT id, subject, category, original_filename, cloudinary_url, cloudinary_public_id, uploaded_at FROM files ORDER BY uploaded_at DESC LIMIT ?"), (limit,))
     rows = c.fetchall()
     conn.close()
     return [(r["id"], r["subject"], r["category"], r["original_filename"], r["cloudinary_url"], r["uploaded_at"]) for r in rows]
@@ -148,13 +182,13 @@ def get_recent_files(limit=20):
 def delete_file_record(file_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT cloudinary_public_id, resource_type, subject FROM files WHERE id = ?", (file_id,))
+    c.execute(q("SELECT cloudinary_public_id, resource_type, subject FROM files WHERE id = ?"), (file_id,))
     row = c.fetchone()
     if row:
         public_id = row["cloudinary_public_id"]
         resource_type = row["resource_type"]
         subject = row["subject"]
-        c.execute("DELETE FROM files WHERE id = ?", (file_id,))
+        c.execute(q("DELETE FROM files WHERE id = ?"), (file_id,))
         conn.commit()
         conn.close()
         try:
@@ -177,7 +211,7 @@ def sanitize_filename(name):
 def get_files_by_subject_and_subject(subject):
     conn = get_db()
     c = conn.cursor()
-    c.execute("SELECT id, original_filename, category FROM files WHERE subject = ? ORDER BY uploaded_at DESC", (subject,))
+    c.execute(q("SELECT id, original_filename, category FROM files WHERE subject = ? ORDER BY uploaded_at DESC"), (subject,))
     rows = c.fetchall()
     conn.close()
     return rows
@@ -186,7 +220,7 @@ def get_files_by_subject_and_subject(subject):
 def add_announcement(content):
     conn = get_db()
     c = conn.cursor()
-    c.execute("INSERT INTO announcements (content, enabled, created_at) VALUES (?, 1, ?)", (content, datetime.now().isoformat()))
+    c.execute(q("INSERT INTO announcements (content, enabled, created_at) VALUES (?, 1, ?)"), (content, datetime.now().isoformat()))
     conn.commit()
     conn.close()
 
@@ -194,7 +228,7 @@ def add_announcement(content):
 def delete_announcement(aid):
     conn = get_db()
     c = conn.cursor()
-    c.execute("DELETE FROM announcements WHERE id = ?", (aid,))
+    c.execute(q("DELETE FROM announcements WHERE id = ?"), (aid,))
     conn.commit()
     conn.close()
 
@@ -621,8 +655,8 @@ def ai_status():
 def api_download(file_id):
     conn = get_db()
     c = conn.cursor()
-    c.execute("UPDATE files SET downloads = COALESCE(downloads, 0) + 1 WHERE id = ?", (file_id,))
-    c.execute("SELECT downloads FROM files WHERE id = ?", (file_id,))
+    c.execute(q("UPDATE files SET downloads = COALESCE(downloads, 0) + 1 WHERE id = ?"), (file_id,))
+    c.execute(q("SELECT downloads FROM files WHERE id = ?"), (file_id,))
     row = c.fetchone()
     conn.commit()
     conn.close()
